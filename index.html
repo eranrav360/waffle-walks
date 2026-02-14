@@ -271,10 +271,14 @@
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby4OnWBHaHn5BhHRXVrmdwmrBwt4AH634QfeYXG8FWB3f4LTdp3B2kOHE0bSd3DlV3R6A/exec';
     // =======================================
 
-    // Get user name from URL param (?who=ערן) or localStorage
+    // Get user name from URL param (?who=ערן), hash (#ערן), or localStorage
     const params = new URLSearchParams(window.location.search);
-    const selectedWho = params.get('who') || localStorage.getItem('waffleWalksWho');
-    if (selectedWho) {
+    const rawParam = params.get('who');
+    const hashName = decodeURIComponent(window.location.hash.slice(1));
+    const selectedWho = (rawParam && rawParam !== 'null' ? rawParam : null)
+        || (hashName ? hashName : null)
+        || localStorage.getItem('waffleWalksWho');
+    if (selectedWho && selectedWho !== 'null') {
         localStorage.setItem('waffleWalksWho', selectedWho);
     }
 

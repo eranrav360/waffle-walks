@@ -103,6 +103,12 @@ function sendNotification(data) {
 
 var SUMMARY_RECIPIENTS = 'eran.raviv@gmail.com,ohresearch@gmail.com';
 var NAMES = ['תהל', 'ערן', 'אורית', 'אהד'];
+var NAME_EMAILS = {
+  'תהל': 'tahel.raviv@gmail.com',
+  'ערן': 'eran.raviv@gmail.com',
+  'אורית': 'ohresearch@gmail.com',
+  'אהד': 'ohadraviv14@gmail.com'
+};
 
 /**
  * Get all walks within a date range.
@@ -314,6 +320,60 @@ function sendMonthlySummary() {
 }
 
 /**
+ * DAILY REMINDER - sends a friendly nudge to whoever didn't walk Waffle yesterday.
+ * Runs together with sendDailySummary at 8:00 AM.
+ */
+function sendDailyReminder() {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  var walks = getWalksInRange(yesterday, today);
+
+  // Find who DID walk yesterday
+  var walkedYesterday = {};
+  walks.forEach(function(w) { walkedYesterday[w.who] = true; });
+
+  // Find who DIDN'T walk yesterday
+  var slackers = NAMES.filter(function(name) { return !walkedYesterday[name]; });
+
+  if (slackers.length === 0 || slackers.length === NAMES.length) return;
+  // If nobody walked, skip (probably a family day off). If everyone walked, no reminder needed.
+
+  var dayStr = yesterday.toLocaleDateString('he-IL', { weekday: 'long' });
+
+  slackers.forEach(function(name) {
+    var email = NAME_EMAILS[name];
+    if (!email) return;
+
+    var htmlBody = '<div dir="rtl" style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">'
+      + '<div style="background: #FF8F00; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">'
+      + '<h1 style="color: white; margin: 0;">🐕 וופל מחכה לך!</h1>'
+      + '</div>'
+      + '<div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e0e0e0; text-align: center;">'
+      + '<p style="font-size: 18px; color: #5D4037;">היי ' + name + ',</p>'
+      + '<p style="font-size: 16px; color: #666;">שמנו לב שאתמול (' + dayStr + ') לא הוצאת את וופל לטיול.</p>'
+      + '<p style="font-size: 16px; color: #666;">וופל תשמח לצאת איתך היום! 🐾</p>'
+      + '</div></div>';
+
+    var textBody = 'היי ' + name + ', שמנו לב שאתמול (' + dayStr + ') לא הוצאת את וופל לטיול. וופל תשמח לצאת איתך היום!';
+
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: '🐕 וופל מחכה לך!',
+        body: textBody,
+        htmlBody: htmlBody,
+        name: 'WaffleWalks 🐾'
+      });
+    } catch (error) {
+      Logger.log('Reminder email error for ' + name + ': ' + error.toString());
+    }
+  });
+}
+
+/**
  * Run this ONCE to set up all automatic triggers.
  * Go to Apps Script editor > Run > setupTriggers
  */
@@ -326,6 +386,13 @@ function setupTriggers() {
 
   // Daily at 8:00 AM
   ScriptApp.newTrigger('sendDailySummary')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .create();
+
+  // Daily reminder at 8:00 AM (nudge whoever didn't walk yesterday)
+  ScriptApp.newTrigger('sendDailyReminder')
     .timeBased()
     .everyDays(1)
     .atHour(8)
