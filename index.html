@@ -299,10 +299,24 @@
 
 <script>
     // ============ CONFIGURATION ============
-    const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby4OnWBHaHn5BhHRXVrmdwmrBwt4AH634QfeYXG8FWB3f4LTdp3B2kOHE0bSd3DlV3R6A/exec';
     // =======================================
 
     let selectedWho = null;
+
+    // Auto-select "Who" from URL param (?who=ערן) or localStorage
+    (function autoSelectWho() {
+        const params = new URLSearchParams(window.location.search);
+        const whoParam = params.get('who') || localStorage.getItem('waffleWalksWho');
+        if (whoParam) {
+            const btn = document.querySelector(`.who-btn[data-name="${whoParam}"]`);
+            if (btn) {
+                btn.classList.add('selected');
+                selectedWho = whoParam;
+                localStorage.setItem('waffleWalksWho', whoParam);
+            }
+        }
+    })();
 
     // Auto-select time of day
     (function autoSelectWhen() {
@@ -321,6 +335,7 @@
             document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             selectedWho = btn.dataset.name;
+            localStorage.setItem('waffleWalksWho', selectedWho);
             updateSubmitState();
         });
     });
