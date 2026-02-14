@@ -45,6 +45,13 @@
             margin-top: 8px;
         }
 
+        .header .greeting {
+            font-size: 20px;
+            color: #8D6E63;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
         .header p {
             color: #8D6E63;
             font-size: 14px;
@@ -60,33 +67,6 @@
             font-weight: 600;
             color: #5D4037;
             margin-bottom: 10px;
-        }
-
-        /* Who - selection buttons */
-        .who-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .who-btn {
-            padding: 14px;
-            border: 2px solid #D7CCC8;
-            border-radius: 14px;
-            background: #FAFAFA;
-            font-size: 18px;
-            font-weight: 600;
-            color: #5D4037;
-            cursor: pointer;
-            transition: all 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .who-btn.selected {
-            border-color: #8B5E3C;
-            background: #8B5E3C;
-            color: white;
-            transform: scale(1.03);
         }
 
         /* When - dropdown */
@@ -241,19 +221,8 @@
     <div id="formView">
         <div class="header">
             <div class="dog-icon">🐕</div>
+            <div class="greeting" id="greeting"></div>
             <h1>וופל יצאה לטייל!</h1>
-            <p>מי הוציא את וופל?</p>
-        </div>
-
-        <!-- Who -->
-        <div class="section">
-            <div class="section-label">מי? 🙋</div>
-            <div class="who-grid">
-                <button class="who-btn" data-name="תהל">תהל</button>
-                <button class="who-btn" data-name="ערן">ערן</button>
-                <button class="who-btn" data-name="אורית">אורית</button>
-                <button class="who-btn" data-name="אהד">אהד</button>
-            </div>
         </div>
 
         <!-- When -->
@@ -302,43 +271,33 @@
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby4OnWBHaHn5BhHRXVrmdwmrBwt4AH634QfeYXG8FWB3f4LTdp3B2kOHE0bSd3DlV3R6A/exec';
     // =======================================
 
-    let selectedWho = null;
+    // Get user name from URL param (?who=ערן) or localStorage
+    const params = new URLSearchParams(window.location.search);
+    const selectedWho = params.get('who') || localStorage.getItem('waffleWalksWho');
+    if (selectedWho) {
+        localStorage.setItem('waffleWalksWho', selectedWho);
+    }
 
-    // Auto-select "Who" from URL param (?who=ערן) or localStorage
-    (function autoSelectWho() {
-        const params = new URLSearchParams(window.location.search);
-        const whoParam = params.get('who') || localStorage.getItem('waffleWalksWho');
-        if (whoParam) {
-            const btn = document.querySelector(`.who-btn[data-name="${whoParam}"]`);
-            if (btn) {
-                btn.classList.add('selected');
-                selectedWho = whoParam;
-                localStorage.setItem('waffleWalksWho', whoParam);
-            }
+    // Get time-of-day value and greeting
+    function getTimeOfDay() {
+        const hour = new Date().getHours();
+        if (hour >= 5 && hour < 11) return { value: 'בוקר', greeting: 'בוקר טוב' };
+        if (hour >= 11 && hour < 16) return { value: 'צהריים', greeting: 'צהריים טובים' };
+        if (hour >= 16 && hour < 20) return { value: 'ערב', greeting: 'ערב טוב' };
+        return { value: 'לילה', greeting: 'לילה טוב' };
+    }
+
+    // Set greeting and auto-select time
+    (function init() {
+        const time = getTimeOfDay();
+        document.getElementById('whenSelect').value = time.value;
+        const greetingEl = document.getElementById('greeting');
+        if (selectedWho) {
+            greetingEl.textContent = `${time.greeting} ${selectedWho}!`;
+        } else {
+            greetingEl.textContent = `${time.greeting}!`;
         }
     })();
-
-    // Auto-select time of day
-    (function autoSelectWhen() {
-        const hour = new Date().getHours();
-        let val;
-        if (hour >= 5 && hour < 11) val = 'בוקר';
-        else if (hour >= 11 && hour < 16) val = 'צהריים';
-        else if (hour >= 16 && hour < 20) val = 'ערב';
-        else val = 'לילה';
-        document.getElementById('whenSelect').value = val;
-    })();
-
-    // Who selection
-    document.querySelectorAll('.who-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            selectedWho = btn.dataset.name;
-            localStorage.setItem('waffleWalksWho', selectedWho);
-            updateSubmitState();
-        });
-    });
 
     // What checkboxes
     document.querySelectorAll('.what-option').forEach(opt => {
@@ -352,9 +311,8 @@
     });
 
     function updateSubmitState() {
-        const hasWho = selectedWho !== null;
         const hasWhat = document.getElementById('cbPipi').checked || document.getElementById('cbKaki').checked;
-        document.getElementById('submitBtn').disabled = !(hasWho && hasWhat);
+        document.getElementById('submitBtn').disabled = !hasWhat;
     }
 
     // Submit
@@ -402,8 +360,6 @@
     });
 
     function resetForm() {
-        selectedWho = null;
-        document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
         document.getElementById('cbPipi').checked = false;
         document.getElementById('cbKaki').checked = false;
         document.querySelectorAll('.what-option').forEach(o => o.classList.remove('checked'));
@@ -411,14 +367,11 @@
         document.getElementById('submitBtn').textContent = 'שליחה';
         document.getElementById('statusMsg').textContent = '';
 
-        // Re-auto-select time
-        const hour = new Date().getHours();
-        let val;
-        if (hour >= 5 && hour < 11) val = 'בוקר';
-        else if (hour >= 11 && hour < 16) val = 'צהריים';
-        else if (hour >= 16 && hour < 20) val = 'ערב';
-        else val = 'לילה';
-        document.getElementById('whenSelect').value = val;
+        // Re-auto-select time and greeting
+        const time = getTimeOfDay();
+        document.getElementById('whenSelect').value = time.value;
+        const greetingEl = document.getElementById('greeting');
+        greetingEl.textContent = selectedWho ? `${time.greeting} ${selectedWho}!` : `${time.greeting}!`;
 
         document.getElementById('successView').style.display = 'none';
         document.getElementById('formView').style.display = 'block';
