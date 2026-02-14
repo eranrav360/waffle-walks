@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#8B5E3C">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WaffleWalks">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+    <title>WaffleWalks</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5e6d3 0%, #e8d5b7 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(139, 94, 60, 0.15);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header .dog-icon { font-size: 48px; }
+
+        .header h1 {
+            font-size: 24px;
+            color: #5D4037;
+            margin-top: 8px;
+        }
+
+        .header p {
+            color: #8D6E63;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #5D4037;
+            margin-bottom: 10px;
+        }
+
+        /* Who - selection buttons */
+        .who-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .who-btn {
+            padding: 14px;
+            border: 2px solid #D7CCC8;
+            border-radius: 14px;
+            background: #FAFAFA;
+            font-size: 18px;
+            font-weight: 600;
+            color: #5D4037;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .who-btn.selected {
+            border-color: #8B5E3C;
+            background: #8B5E3C;
+            color: white;
+            transform: scale(1.03);
+        }
+
+        /* When - dropdown */
+        .when-select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #D7CCC8;
+            border-radius: 14px;
+            background: #FAFAFA;
+            font-size: 16px;
+            color: #5D4037;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235D4037' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 16px center;
+            cursor: pointer;
+        }
+
+        /* What - checkboxes */
+        .what-options {
+            display: flex;
+            gap: 12px;
+        }
+
+        .what-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px;
+            border: 2px solid #D7CCC8;
+            border-radius: 14px;
+            background: #FAFAFA;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .what-option.checked {
+            border-color: #8B5E3C;
+            background: #FFF3E0;
+        }
+
+        .what-option input { display: none; }
+
+        .what-option .checkbox-icon {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #BCAAA4;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 14px;
+            color: transparent;
+        }
+
+        .what-option.checked .checkbox-icon {
+            background: #8B5E3C;
+            border-color: #8B5E3C;
+            color: white;
+        }
+
+        .what-option span:last-child {
+            font-size: 16px;
+            font-weight: 500;
+            color: #5D4037;
+        }
+
+        /* Submit button */
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            background: #8B5E3C;
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+
+        .submit-btn:disabled {
+            background: #D7CCC8;
+            cursor: not-allowed;
+        }
+
+        .submit-btn:not(:disabled):active {
+            transform: scale(0.97);
+            background: #6D4C2A;
+        }
+
+        /* Status messages */
+        .status {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        .status.success { color: #2E7D32; }
+        .status.error { color: #C62828; }
+
+        /* Success screen */
+        .success-screen {
+            display: none;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .success-screen .icon { font-size: 64px; }
+        .success-screen h2 { color: #2E7D32; margin: 16px 0 8px; font-size: 22px; }
+        .success-screen p { color: #666; font-size: 15px; }
+
+        .reset-btn {
+            margin-top: 24px;
+            padding: 12px 32px;
+            border: 2px solid #8B5E3C;
+            border-radius: 14px;
+            background: white;
+            color: #8B5E3C;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Form -->
+    <div id="formView">
+        <div class="header">
+            <div class="dog-icon">🐕</div>
+            <h1>וופל יצאה לטייל!</h1>
+            <p>מי הוציא את וופל?</p>
+        </div>
+
+        <!-- Who -->
+        <div class="section">
+            <div class="section-label">מי? 🙋</div>
+            <div class="who-grid">
+                <button class="who-btn" data-name="תהל">תהל</button>
+                <button class="who-btn" data-name="ערן">ערן</button>
+                <button class="who-btn" data-name="אורית">אורית</button>
+                <button class="who-btn" data-name="אהד">אהד</button>
+            </div>
+        </div>
+
+        <!-- When -->
+        <div class="section">
+            <div class="section-label">מתי? 🕐</div>
+            <select class="when-select" id="whenSelect">
+                <option value="בוקר">🌅 בוקר</option>
+                <option value="צהריים">☀️ צהריים</option>
+                <option value="ערב">🌆 ערב</option>
+                <option value="לילה">🌙 לילה</option>
+            </select>
+        </div>
+
+        <!-- What -->
+        <div class="section">
+            <div class="section-label">מה עשתה? 🐾</div>
+            <div class="what-options">
+                <label class="what-option" id="optPipi">
+                    <input type="checkbox" id="cbPipi">
+                    <div class="checkbox-icon">✓</div>
+                    <span>💧 פיפי</span>
+                </label>
+                <label class="what-option" id="optKaki">
+                    <input type="checkbox" id="cbKaki">
+                    <div class="checkbox-icon">✓</div>
+                    <span>💩 קקי</span>
+                </label>
+            </div>
+        </div>
+
+        <button class="submit-btn" id="submitBtn" disabled>שליחה</button>
+        <div class="status" id="statusMsg"></div>
+    </div>
+
+    <!-- Success screen -->
+    <div class="success-screen" id="successView">
+        <div class="icon">🎉</div>
+        <h2>נשלח בהצלחה!</h2>
+        <p id="successDetail"></p>
+        <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
+    </div>
+</div>
+
+<script>
+    // ============ CONFIGURATION ============
+    const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+    // =======================================
+
+    let selectedWho = null;
+
+    // Auto-select time of day
+    (function autoSelectWhen() {
+        const hour = new Date().getHours();
+        let val;
+        if (hour >= 5 && hour < 11) val = 'בוקר';
+        else if (hour >= 11 && hour < 16) val = 'צהריים';
+        else if (hour >= 16 && hour < 20) val = 'ערב';
+        else val = 'לילה';
+        document.getElementById('whenSelect').value = val;
+    })();
+
+    // Who selection
+    document.querySelectorAll('.who-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedWho = btn.dataset.name;
+            updateSubmitState();
+        });
+    });
+
+    // What checkboxes
+    document.querySelectorAll('.what-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            e.preventDefault();
+            const cb = opt.querySelector('input');
+            cb.checked = !cb.checked;
+            opt.classList.toggle('checked', cb.checked);
+            updateSubmitState();
+        });
+    });
+
+    function updateSubmitState() {
+        const hasWho = selectedWho !== null;
+        const hasWhat = document.getElementById('cbPipi').checked || document.getElementById('cbKaki').checked;
+        document.getElementById('submitBtn').disabled = !(hasWho && hasWhat);
+    }
+
+    // Submit
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('submitBtn');
+        const statusMsg = document.getElementById('statusMsg');
+
+        btn.disabled = true;
+        btn.innerHTML = 'שולח... <span class="spinner"></span>';
+        statusMsg.textContent = '';
+        statusMsg.className = 'status';
+
+        const data = {
+            timestamp: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }),
+            who: selectedWho,
+            when: document.getElementById('whenSelect').value,
+            pipiChecked: document.getElementById('cbPipi').checked,
+            kakiChecked: document.getElementById('cbKaki').checked
+        };
+
+        try {
+            const response = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(data),
+                mode: 'no-cors'
+            });
+
+            // With no-cors we can't read the response, so assume success if no error thrown
+            document.getElementById('formView').style.display = 'none';
+            document.getElementById('successView').style.display = 'block';
+
+            const what = [];
+            if (data.pipiChecked) what.push('פיפי');
+            if (data.kakiChecked) what.push('קקי');
+            document.getElementById('successDetail').textContent =
+                `${data.who} הוציא/ה את וופל ב${data.when} — ${what.join(' + ')}`;
+
+        } catch (err) {
+            statusMsg.textContent = 'שגיאה בשליחה, נסו שוב';
+            statusMsg.className = 'status error';
+            btn.disabled = false;
+            btn.textContent = 'שליחה';
+        }
+    });
+
+    function resetForm() {
+        selectedWho = null;
+        document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
+        document.getElementById('cbPipi').checked = false;
+        document.getElementById('cbKaki').checked = false;
+        document.querySelectorAll('.what-option').forEach(o => o.classList.remove('checked'));
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').textContent = 'שליחה';
+        document.getElementById('statusMsg').textContent = '';
+
+        // Re-auto-select time
+        const hour = new Date().getHours();
+        let val;
+        if (hour >= 5 && hour < 11) val = 'בוקר';
+        else if (hour >= 11 && hour < 16) val = 'צהריים';
+        else if (hour >= 16 && hour < 20) val = 'ערב';
+        else val = 'לילה';
+        document.getElementById('whenSelect').value = val;
+
+        document.getElementById('successView').style.display = 'none';
+        document.getElementById('formView').style.display = 'block';
+    }
+
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+</script>
+
+</body>
+</html>
