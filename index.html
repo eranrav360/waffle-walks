@@ -88,8 +88,9 @@
 
         /* What - checkboxes */
         .what-options {
-            display: flex;
-            gap: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
         }
 
         .what-option {
@@ -250,6 +251,11 @@
                     <div class="checkbox-icon">✓</div>
                     <span>💩 קקי</span>
                 </label>
+                <label class="what-option" id="optNothing">
+                    <input type="checkbox" id="cbNothing">
+                    <div class="checkbox-icon">✓</div>
+                    <span>🚫 כלום</span>
+                </label>
             </div>
         </div>
 
@@ -303,19 +309,36 @@
         }
     })();
 
-    // What checkboxes
+    // What checkboxes — "כלום" is mutually exclusive with פיפי/קקי
     document.querySelectorAll('.what-option').forEach(opt => {
         opt.addEventListener('click', (e) => {
             e.preventDefault();
             const cb = opt.querySelector('input');
-            cb.checked = !cb.checked;
-            opt.classList.toggle('checked', cb.checked);
+            const newState = !cb.checked;
+            cb.checked = newState;
+            opt.classList.toggle('checked', newState);
+
+            if (newState) {
+                if (cb.id === 'cbNothing') {
+                    // Uncheck פיפי and קקי
+                    ['cbPipi', 'cbKaki'].forEach(id => {
+                        document.getElementById(id).checked = false;
+                        document.getElementById(id === 'cbPipi' ? 'optPipi' : 'optKaki').classList.remove('checked');
+                    });
+                } else {
+                    // Uncheck כלום
+                    document.getElementById('cbNothing').checked = false;
+                    document.getElementById('optNothing').classList.remove('checked');
+                }
+            }
             updateSubmitState();
         });
     });
 
     function updateSubmitState() {
-        const hasWhat = document.getElementById('cbPipi').checked || document.getElementById('cbKaki').checked;
+        const hasWhat = document.getElementById('cbPipi').checked
+            || document.getElementById('cbKaki').checked
+            || document.getElementById('cbNothing').checked;
         document.getElementById('submitBtn').disabled = !hasWhat;
     }
 
@@ -334,7 +357,8 @@
             who: selectedWho,
             when: document.getElementById('whenSelect').value,
             pipiChecked: document.getElementById('cbPipi').checked,
-            kakiChecked: document.getElementById('cbKaki').checked
+            kakiChecked: document.getElementById('cbKaki').checked,
+            nothingChecked: document.getElementById('cbNothing').checked
         };
 
         try {
@@ -352,6 +376,7 @@
             const what = [];
             if (data.pipiChecked) what.push('פיפי');
             if (data.kakiChecked) what.push('קקי');
+            if (data.nothingChecked) what.push('כלום');
             document.getElementById('successDetail').textContent =
                 `${data.who} הוציא/ה את וופל ב${data.when} — ${what.join(' + ')}`;
 

@@ -23,8 +23,8 @@ function doPost(e) {
 
     // Create headers if first time
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['תאריך ושעה', 'מי', 'מתי', 'פיפי', 'קקי']);
-      var headerRange = sheet.getRange(1, 1, 1, 5);
+      sheet.appendRow(['תאריך ושעה', 'מי', 'מתי', 'פיפי', 'קקי', 'כלום']);
+      var headerRange = sheet.getRange(1, 1, 1, 6);
       headerRange.setBackground('#8B5E3C');
       headerRange.setFontColor('#ffffff');
       headerRange.setFontWeight('bold');
@@ -33,13 +33,14 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents);
 
-    // Append row to sheet
+    // Append row to sheet — store a real Date object so date comparisons work reliably
     sheet.appendRow([
-      data.timestamp,
+      new Date(),
       data.who,
       data.when,
       data.pipiChecked ? '✓' : '',
-      data.kakiChecked ? '✓' : ''
+      data.kakiChecked ? '✓' : '',
+      data.nothingChecked ? '✓' : ''
     ]);
 
     // Send notification emails
@@ -64,6 +65,7 @@ function sendNotification(data) {
   var what = [];
   if (data.pipiChecked) what.push('פיפי 💧');
   if (data.kakiChecked) what.push('קקי 💩');
+  if (data.nothingChecked) what.push('כלום 🚫');
 
   var htmlBody = '<div dir="rtl" style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">'
     + '<div style="background: #8B5E3C; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">'
@@ -119,18 +121,20 @@ function getWalksInRange(startDate, endDate) {
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
   var walks = [];
 
   data.forEach(function(row) {
-    var ts = new Date(row[0]);
+    var ts = row[0] instanceof Date ? row[0] : new Date(row[0]);
+    if (isNaN(ts.getTime())) return; // skip unparseable rows
     if (ts >= startDate && ts < endDate) {
       walks.push({
         timestamp: row[0],
         who: row[1],
         when: row[2],
         pipi: row[3] === '✓',
-        kaki: row[4] === '✓'
+        kaki: row[4] === '✓',
+        nothing: row[5] === '✓'
       });
     }
   });
@@ -413,6 +417,45 @@ function setupTriggers() {
     .create();
 
   Logger.log('All triggers set up successfully!');
+}
+
+// ============================================================
+// ONE-TIME FIX — run once then delete
+// ============================================================
+
+/**
+ * Converts old Hebrew string timestamps (e.g. "14.2.2026, 8:14:15")
+ * to real Date objects in column A. Run once, then delete.
+ */
+function fixOldTimestamps() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  var range = sheet.getRange(2, 1, lastRow - 1, 1);
+  var values = range.getValues();
+  var fixed = 0;
+
+  values.forEach(function(row, i) {
+    var cell = row[0];
+    if (cell instanceof Date) return; // already fine
+
+    var str = String(cell).trim();
+    // Format: "14.2.2026, 8:14:15"
+    var match = str.match(/^(\d+)\.(\d+)\.(\d+),\s*(\d+):(\d+):(\d+)/);
+    if (!match) return;
+
+    var d = parseInt(match[1]), mo = parseInt(match[2]) - 1, y = parseInt(match[3]);
+    var h = parseInt(match[4]), mi = parseInt(match[5]), s = parseInt(match[6]);
+    var date = new Date(y, mo, d, h, mi, s);
+
+    if (!isNaN(date.getTime())) {
+      sheet.getRange(i + 2, 1).setValue(date);
+      fixed++;
+    }
+  });
+
+  Logger.log('Fixed ' + fixed + ' rows.');
 }
 
 // ============================================================
