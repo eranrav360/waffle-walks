@@ -17,14 +17,119 @@
  * 11. הדבק את ה-URL בקובץ index.html במקום YOUR_GOOGLE_APPS_SCRIPT_URL_HERE
  */
 
+function doGet(e) {
+  return HtmlService.createHtmlOutput(getAdminHtml())
+    .setTitle('WaffleWalks Admin 🐾')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getAdminHtml() {
+  return '<!DOCTYPE html>' +
+  '<html dir="rtl" lang="he"><head>' +
+  '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+  '<title>WaffleWalks Admin</title>' +
+  '<style>' +
+  '* { margin:0; padding:0; box-sizing:border-box; }' +
+  'body { font-family: Arial, sans-serif; background: #f5e6d3; padding: 16px; min-height:100vh; }' +
+  '.card { background: white; border-radius: 16px; padding: 24px; max-width: 620px; margin: 0 auto; box-shadow: 0 4px 16px rgba(0,0,0,.1); }' +
+  'h1 { color:#5D4037; text-align:center; margin-bottom:24px; font-size:22px; }' +
+  'h2 { color:#5D4037; font-size:15px; margin-bottom:10px; }' +
+  'table { width:100%; border-collapse:collapse; margin-bottom:24px; font-size:14px; }' +
+  'th { background:#8B5E3C; color:white; padding:10px 8px; text-align:center; font-size:13px; }' +
+  'th:first-child { text-align:right; }' +
+  'td { padding:10px 8px; border-bottom:1px solid #f0e0d0; text-align:center; }' +
+  'td:first-child { text-align:right; font-weight:bold; color:#5D4037; }' +
+  'tr:nth-child(even) td { background:#fdf8f5; }' +
+  'input[type=checkbox] { width:20px; height:20px; cursor:pointer; accent-color:#8B5E3C; }' +
+  '.time-row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:8px; }' +
+  '.time-field label { display:block; color:#5D4037; font-size:13px; margin-bottom:4px; font-weight:bold; }' +
+  '.time-field input { width:100%; padding:8px; border:2px solid #D7CCC8; border-radius:8px; font-size:16px; text-align:center; }' +
+  '.note { font-size:12px; color:#999; margin-bottom:20px; }' +
+  '.btn { width:100%; padding:14px; border:none; border-radius:12px; background:#8B5E3C; color:white; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px; }' +
+  '.btn:disabled { background:#ccc; cursor:not-allowed; }' +
+  '.btn-outline { background:white; color:#8B5E3C; border:2px solid #8B5E3C; }' +
+  '.status { text-align:center; padding:8px; font-size:14px; min-height:20px; border-radius:8px; }' +
+  '.status.ok { color:#2E7D32; background:#e8f5e9; }' +
+  '.status.err { color:#C62828; background:#ffebee; }' +
+  '.loading { text-align:center; color:#8B5E3C; padding:40px; font-size:16px; }' +
+  '</style></head><body>' +
+  '<div class="card">' +
+  '<h1>🐾 WaffleWalks — הגדרות</h1>' +
+  '<div id="content" class="loading">טוען הגדרות...</div>' +
+  '</div>' +
+  '<script>' +
+  'var NAMES = ["תהל","ערן","אורית","אהד"];' +
+  'var TYPES = [' +
+  '  {key:"walkNotification", label:"התראה מיידית"},' +
+  '  {key:"dailySummary",   label:"סיכום יומי"},' +
+  '  {key:"weeklySummary",  label:"סיכום שבועי"},' +
+  '  {key:"monthlySummary", label:"סיכום חודשי"},' +
+  '  {key:"reminder",       label:"תזכורת"}' +
+  '];' +
+  'function render(cfg) {' +
+  '  var n = cfg.notifications, t = cfg.times;' +
+  '  var h = "<h2>התראות לפי אדם</h2><table><tr><th>שם</th>";' +
+  '  TYPES.forEach(function(tp){ h += "<th>" + tp.label + "</th>"; });' +
+  '  h += "</tr>";' +
+  '  NAMES.forEach(function(name) {' +
+  '    h += "<tr><td>" + name + "</td>";' +
+  '    TYPES.forEach(function(tp) {' +
+  '      var chk = n[name] && n[name][tp.key] ? "checked" : "";' +
+  '      h += "<td><input type=\\"checkbox\\" data-name=\\"" + name + "\\" data-type=\\"" + tp.key + "\\" " + chk + "></td>";' +
+  '    });' +
+  '    h += "</tr>";' +
+  '  });' +
+  '  h += "</table>";' +
+  '  h += "<h2>שעת שליחה (0–23)</h2><div class=\\"time-row\\">";' +
+  '  TYPES.filter(function(tp){ return tp.key !== "walkNotification"; }).forEach(function(tp) {' +
+  '    h += "<div class=\\"time-field\\"><label>" + tp.label + "</label>";' +
+  '    h += "<input type=\\"number\\" id=\\"time_" + tp.key + "\\" min=\\"0\\" max=\\"23\\" value=\\"" + (t[tp.key] !== undefined ? t[tp.key] : 8) + "\\"></div>";' +
+  '  });' +
+  '  h += "</div><p class=\\"note\\">* שינוי שעות ייכנס לתוקף לאחר לחיצה על עדכן טריגרים</p>";' +
+  '  h += "<button class=\\"btn\\" onclick=\\"save()\\">💾 שמור הגדרות</button>";' +
+  '  h += "<button class=\\"btn btn-outline\\" onclick=\\"rebuild()\\">🔄 עדכן טריגרים</button>";' +
+  '  h += "<div class=\\"status\\" id=\\"st\\"></div>";' +
+  '  document.getElementById("content").innerHTML = h;' +
+  '}' +
+  'function save() {' +
+  '  var notif = {}; NAMES.forEach(function(n){ notif[n] = {}; });' +
+  '  document.querySelectorAll("input[data-name]").forEach(function(cb){' +
+  '    notif[cb.dataset.name][cb.dataset.type] = cb.checked;' +
+  '  });' +
+  '  var times = {};' +
+  '  TYPES.filter(function(tp){ return tp.key !== "walkNotification"; }).forEach(function(tp){ times[tp.key] = parseInt(document.getElementById("time_" + tp.key).value) || 8; });' +
+  '  setStatus("שומר...", "");' +
+  '  google.script.run' +
+  '    .withSuccessHandler(function(){ setStatus("✅ נשמר בהצלחה!", "ok"); })' +
+  '    .withFailureHandler(function(e){ setStatus("❌ " + e.message, "err"); })' +
+  '    .saveConfigFromAdmin({notifications: notif, times: times});' +
+  '}' +
+  'function rebuild() {' +
+  '  setStatus("מעדכן טריגרים...", "");' +
+  '  google.script.run' +
+  '    .withSuccessHandler(function(){ setStatus("✅ טריגרים עודכנו!", "ok"); })' +
+  '    .withFailureHandler(function(e){ setStatus("❌ " + e.message, "err"); })' +
+  '    .rebuildTriggersFromAdmin();' +
+  '}' +
+  'function setStatus(msg, cls) {' +
+  '  var el = document.getElementById("st");' +
+  '  el.textContent = msg; el.className = "status " + cls;' +
+  '}' +
+  'google.script.run' +
+  '  .withSuccessHandler(render)' +
+  '  .withFailureHandler(function(e){ document.getElementById("content").innerHTML = "<p style=\'color:red\'>שגיאה: " + e.message + "</p>"; })' +
+  '  .getConfigForAdmin();' +
+  '<\/script></body></html>';
+}
+
 function doPost(e) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
     // Create headers if first time
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['תאריך ושעה', 'מי', 'מתי', 'פיפי', 'קקי', 'כלום']);
-      var headerRange = sheet.getRange(1, 1, 1, 6);
+      sheet.appendRow(['תאריך ושעה', 'מי', 'מתי', 'פיפי', 'קקי', 'כלום', 'משך']);
+      var headerRange = sheet.getRange(1, 1, 1, 7);
       headerRange.setBackground('#8B5E3C');
       headerRange.setFontColor('#ffffff');
       headerRange.setFontWeight('bold');
@@ -40,7 +145,8 @@ function doPost(e) {
       data.when,
       data.pipiChecked ? '✓' : '',
       data.kakiChecked ? '✓' : '',
-      data.nothingChecked ? '✓' : ''
+      data.nothingChecked ? '✓' : '',
+      data.duration || ''
     ]);
 
     // Send notification emails
@@ -59,7 +165,8 @@ function doPost(e) {
 }
 
 function sendNotification(data) {
-  var recipients = 'eran.raviv@gmail.com,ohresearch@gmail.com';
+  var recipients = getRecipientsFor('walkNotification');
+  if (!recipients) return;
   var subject = '🐕 וופל יצאה לטייל!';
 
   var what = [];
@@ -77,6 +184,7 @@ function sendNotification(data) {
     + '<tr style="background: #f5f0eb;"><td style="padding: 10px; font-weight: bold; color: #5D4037;">מתי:</td><td style="padding: 10px;">' + data.when + '</td></tr>'
     + '<tr><td style="padding: 10px; font-weight: bold; color: #5D4037;">מה עשתה:</td><td style="padding: 10px;">' + what.join(', ') + '</td></tr>'
     + '<tr style="background: #f5f0eb;"><td style="padding: 10px; font-weight: bold; color: #5D4037;">זמן:</td><td style="padding: 10px;">' + data.timestamp + '</td></tr>'
+    + (data.duration ? '<tr><td style="padding: 10px; font-weight: bold; color: #5D4037;">משך:</td><td style="padding: 10px;">' + data.duration + '</td></tr>' : '')
     + '</table>'
     + '</div></div>';
 
@@ -111,6 +219,57 @@ var NAME_EMAILS = {
   'אורית': 'ohresearch@gmail.com',
   'אהד': 'ohadraviv14@gmail.com'
 };
+
+// ============================================================
+// CONFIG — stored in PropertiesService
+// ============================================================
+
+function getNotificationConfig() {
+  var stored = PropertiesService.getScriptProperties().getProperty('NOTIFICATION_CONFIG');
+  if (stored) return JSON.parse(stored);
+  // Defaults
+  return {
+    'תהל':  { walkNotification: false, dailySummary: false, weeklySummary: false, monthlySummary: false, reminder: true  },
+    'ערן':   { walkNotification: true,  dailySummary: true,  weeklySummary: true,  monthlySummary: true,  reminder: false },
+    'אורית': { walkNotification: true,  dailySummary: true,  weeklySummary: true,  monthlySummary: true,  reminder: false },
+    'אהד':  { walkNotification: false, dailySummary: false, weeklySummary: false, monthlySummary: false, reminder: true  }
+  };
+}
+
+function getTimeConfig() {
+  var stored = PropertiesService.getScriptProperties().getProperty('TIME_CONFIG');
+  if (stored) return JSON.parse(stored);
+  return { dailySummary: 8, weeklySummary: 8, monthlySummary: 8, reminder: 8 };
+}
+
+/** Returns a comma-separated list of emails for a given notification type. */
+function getRecipientsFor(notifType) {
+  var config = getNotificationConfig();
+  var emails = [];
+  NAMES.forEach(function(name) {
+    if (config[name] && config[name][notifType] && NAME_EMAILS[name]) {
+      emails.push(NAME_EMAILS[name]);
+    }
+  });
+  return emails.join(',');
+}
+
+/** Called from admin panel via google.script.run */
+function getConfigForAdmin() {
+  return { notifications: getNotificationConfig(), times: getTimeConfig() };
+}
+
+/** Called from admin panel via google.script.run */
+function saveConfigFromAdmin(config) {
+  var props = PropertiesService.getScriptProperties();
+  if (config.notifications) props.setProperty('NOTIFICATION_CONFIG', JSON.stringify(config.notifications));
+  if (config.times)         props.setProperty('TIME_CONFIG',         JSON.stringify(config.times));
+}
+
+/** Called from admin panel to re-create triggers with updated times */
+function rebuildTriggersFromAdmin() {
+  setupTriggers();
+}
 
 /**
  * Get all walks within a date range.
@@ -231,6 +390,80 @@ function buildSummaryEmail(title, subtitle, walks, stats) {
 }
 
 /**
+ * Returns all walks ever recorded (no date filter).
+ */
+function getAllWalks() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  var walks = [];
+
+  data.forEach(function(row) {
+    var ts = row[0] instanceof Date ? row[0] : new Date(row[0]);
+    if (isNaN(ts.getTime())) return;
+    walks.push({
+      timestamp: ts,
+      who: row[1],
+      pipi: row[3] === '✓',
+      kaki: row[4] === '✓',
+      nothing: row[5] === '✓'
+    });
+  });
+
+  return walks;
+}
+
+/**
+ * Builds the all-time leaderboard HTML block.
+ */
+function buildLeaderboardHtml() {
+  var walks = getAllWalks();
+  if (walks.length === 0) return '';
+
+  // Tally totals per person
+  var totals = {};
+  NAMES.forEach(function(name) { totals[name] = 0; });
+  walks.forEach(function(w) {
+    if (totals[w.who] !== undefined) totals[w.who]++;
+  });
+
+  // Sort descending
+  var ranked = NAMES
+    .map(function(name) { return { name: name, count: totals[name] }; })
+    .filter(function(x) { return x.count > 0; })
+    .sort(function(a, b) { return b.count - a.count; });
+
+  if (ranked.length === 0) return '';
+
+  var medals = ['🥇', '🥈', '🥉'];
+  var firstDate = walks[0].timestamp.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  var html = '<div style="margin-top: 20px; border-top: 2px solid #f5e6d3; padding-top: 16px;">'
+    + '<h3 style="color: #5D4037; margin: 0 0 12px; text-align: center;">🏆 לוח המובילים — מאז ' + firstDate + '</h3>'
+    + '<table style="width: 100%; border-collapse: collapse;">'
+    + '<tr style="background: #5D4037; color: white;">'
+    + '<th style="padding: 8px 10px; text-align: right;">מקום</th>'
+    + '<th style="padding: 8px 10px; text-align: right;">שם</th>'
+    + '<th style="padding: 8px 10px; text-align: center;">טיולים</th>'
+    + '</tr>';
+
+  ranked.forEach(function(entry, i) {
+    var bg = i % 2 === 1 ? ' background: #f5f0eb;' : '';
+    var medal = medals[i] || (i + 1) + '.';
+    html += '<tr style="' + bg + '">'
+      + '<td style="padding: 8px 10px; font-size: 18px;">' + medal + '</td>'
+      + '<td style="padding: 8px 10px; font-weight: bold; color: #5D4037;">' + entry.name + '</td>'
+      + '<td style="padding: 8px 10px; text-align: center; font-weight: bold; font-size: 16px;">' + entry.count + '</td>'
+      + '</tr>';
+  });
+
+  html += '</table></div>';
+  return html;
+}
+
+/**
  * DAILY SUMMARY - runs every day at 8:00 AM, summarizes yesterday.
  */
 function sendDailySummary() {
@@ -243,13 +476,20 @@ function sendDailySummary() {
 
   var walks = getWalksInRange(yesterday, today);
   var stats = buildStats(walks);
-  var html = buildSummaryEmail('סיכום יומי', dayStr, walks, stats);
+
+  // Build email: daily summary + leaderboard appended inside the card
+  var summaryHtml = buildSummaryEmail('סיכום יומי', dayStr, walks, stats);
+  var leaderboardHtml = buildLeaderboardHtml();
+  // Insert leaderboard before the closing </div></div>
+  var html = summaryHtml.replace('</div></div>', leaderboardHtml + '</div></div>');
 
   var textBody = 'סיכום יומי - ' + dayStr + '\nסה"כ טיולים: ' + walks.length;
 
+  var dailyRecipients = getRecipientsFor('dailySummary');
+  if (!dailyRecipients) return;
   try {
     MailApp.sendEmail({
-      to: SUMMARY_RECIPIENTS,
+      to: dailyRecipients,
       subject: '🐕 סיכום יומי — ' + dayStr,
       body: textBody,
       htmlBody: html,
@@ -281,9 +521,11 @@ function sendWeeklySummary() {
 
   var textBody = 'סיכום שבועי: ' + startStr + ' — ' + endStr + '\nסה"כ טיולים: ' + walks.length;
 
+  var weeklyRecipients = getRecipientsFor('weeklySummary');
+  if (!weeklyRecipients) return;
   try {
     MailApp.sendEmail({
-      to: SUMMARY_RECIPIENTS,
+      to: weeklyRecipients,
       subject: '🐕 סיכום שבועי — ' + startStr + ' עד ' + endStr,
       body: textBody,
       htmlBody: html,
@@ -310,9 +552,11 @@ function sendMonthlySummary() {
 
   var textBody = 'סיכום חודשי - ' + monthStr + '\nסה"כ טיולים: ' + walks.length;
 
+  var monthlyRecipients = getRecipientsFor('monthlySummary');
+  if (!monthlyRecipients) return;
   try {
     MailApp.sendEmail({
-      to: SUMMARY_RECIPIENTS,
+      to: monthlyRecipients,
       subject: '🐕 סיכום חודשי — ' + monthStr,
       body: textBody,
       htmlBody: html,
@@ -339,11 +583,15 @@ function sendDailyReminder() {
   var walkedYesterday = {};
   walks.forEach(function(w) { walkedYesterday[w.who] = true; });
 
-  // Find who DIDN'T walk yesterday
-  var slackers = NAMES.filter(function(name) { return !walkedYesterday[name]; });
+  var reminderConfig = getNotificationConfig();
 
-  if (slackers.length === 0 || slackers.length === NAMES.length) return;
-  // If nobody walked, skip (probably a family day off). If everyone walked, no reminder needed.
+  // Find who DIDN'T walk yesterday AND has reminders enabled
+  var slackers = NAMES.filter(function(name) {
+    return !walkedYesterday[name] && reminderConfig[name] && reminderConfig[name].reminder;
+  });
+
+  if (slackers.length === 0) return;
+  if (walks.length === 0) return; // nobody walked at all — skip (family day off)
 
   var dayStr = yesterday.toLocaleDateString('he-IL', { weekday: 'long' });
 
@@ -382,41 +630,24 @@ function sendDailyReminder() {
  * Go to Apps Script editor > Run > setupTriggers
  */
 function setupTriggers() {
+  var times = getTimeConfig();
+
   // Remove existing triggers to avoid duplicates
-  var triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(function(trigger) {
-    ScriptApp.deleteTrigger(trigger);
-  });
+  ScriptApp.getProjectTriggers().forEach(function(t) { ScriptApp.deleteTrigger(t); });
 
-  // Daily at 8:00 AM
   ScriptApp.newTrigger('sendDailySummary')
-    .timeBased()
-    .everyDays(1)
-    .atHour(8)
-    .create();
+    .timeBased().everyDays(1).atHour(times.dailySummary).create();
 
-  // Daily reminder at 8:00 AM (nudge whoever didn't walk yesterday)
   ScriptApp.newTrigger('sendDailyReminder')
-    .timeBased()
-    .everyDays(1)
-    .atHour(8)
-    .create();
+    .timeBased().everyDays(1).atHour(times.reminder).create();
 
-  // Weekly on Friday at 8:00 AM
   ScriptApp.newTrigger('sendWeeklySummary')
-    .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.FRIDAY)
-    .atHour(8)
-    .create();
+    .timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(times.weeklySummary).create();
 
-  // Monthly on the 1st at 8:00 AM
   ScriptApp.newTrigger('sendMonthlySummary')
-    .timeBased()
-    .onMonthDay(1)
-    .atHour(8)
-    .create();
+    .timeBased().onMonthDay(1).atHour(times.monthlySummary).create();
 
-  Logger.log('All triggers set up successfully!');
+  Logger.log('Triggers set: daily=' + times.dailySummary + 'h, weekly=' + times.weeklySummary + 'h, monthly=' + times.monthlySummary + 'h, reminder=' + times.reminder + 'h');
 }
 
 // ============================================================
