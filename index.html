@@ -314,7 +314,6 @@
         <div class="icon">🐾</div>
         <h2 id="successTitle"></h2>
         <p class="success-quote" id="successQuote"></p>
-        <p id="successDetail"></p>
         <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
     </div>
 </div>
@@ -452,13 +451,6 @@
             document.getElementById('successQuote').textContent =
                 THANK_YOU_QUOTES[Math.floor(Math.random() * THANK_YOU_QUOTES.length)];
 
-            const what = [];
-            if (data.pipiChecked) what.push('פיפי');
-            if (data.kakiChecked) what.push('קקי');
-            if (data.nothingChecked) what.push('כלום');
-            const detailParts = [`${data.when} — ${what.join(' + ')}`];
-            if (data.duration) detailParts.push(`⏱️ ${data.duration}`);
-            document.getElementById('successDetail').textContent = detailParts.join(' | ');
 
         } catch (err) {
             statusMsg.textContent = 'שגיאה בשליחה, נסו שוב';
