@@ -511,7 +511,7 @@
             const name = data.who || 'חברנו';
             document.getElementById('successTitle').textContent = `${name}, וופל מודה לך! 🐾`;
             const pool = name === 'תהל' ? STRANGER_THINGS_FACTS
-                       : name === 'אהד' ? EUROVISION_FACTS
+                       : (name === 'אהד' || name === 'אוהד') ? EUROVISION_FACTS
                        : THANK_YOU_QUOTES;
             document.getElementById('successQuote').textContent =
                 pool[Math.floor(Math.random() * pool.length)];
