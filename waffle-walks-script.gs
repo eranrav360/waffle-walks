@@ -138,9 +138,11 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents);
 
-    // Append row to sheet — store a real Date object so date comparisons work reliably
+    // Append row to sheet
+    var now = new Date();
+    var formattedDate = Utilities.formatDate(now, 'Asia/Jerusalem', 'dd/MM/yyyy HH:mm');
     sheet.appendRow([
-      new Date(),
+      formattedDate,
       data.who,
       data.when,
       data.pipiChecked ? '✓' : '',
