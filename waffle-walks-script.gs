@@ -17,6 +17,54 @@
  * 11. הדבק את ה-URL בקובץ index.html במקום YOUR_GOOGLE_APPS_SCRIPT_URL_HERE
  */
 
+// ============================================================
+// WAHA - WhatsApp Configuration
+// ============================================================
+var WAHA_BASE_URL = 'https://waha.raviv360.com';
+var WAHA_SESSION = 'default';
+var WAHA_API_KEY = '';  // Set if your WAHA server requires an API key
+var WHATSAPP_GROUP_ID = '120363021340708870@g.us';
+
+function sendWhatsAppNotification(data) {
+  try {
+    var greetings = [
+      'שיהיה לכולם ערב מקסים!',
+      'שיהיה לכולם יום נפלא!',
+      'שיהיה לכולם בוקר טוב!',
+      'חבקו אותה חזק! 🤗',
+      'היא מחכה לכולם בבית! 🏠',
+      'היא אוהבת אתכם! ❤️'
+    ];
+    var greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+    var results = [];
+    if (data.pipiChecked) results.push('פיפי');
+    if (data.kakiChecked) results.push('קקי');
+    var resultLine = data.nothingChecked ? 'לא עשתה כלום' : 'עשתה ' + results.join(' ו');
+
+    var message = '🐶 וופל יצאה לטיול עם ' + data.who + '\n' + resultLine + '\n' + greeting;
+
+    var url = WAHA_BASE_URL + '/api/sendText';
+    var payload = {
+      chatId: WHATSAPP_GROUP_ID,
+      text: message,
+      session: WAHA_SESSION
+    };
+    var headers = { 'Content-Type': 'application/json' };
+    if (WAHA_API_KEY) headers['X-Api-Key'] = WAHA_API_KEY;
+    var options = {
+      method: 'post',
+      contentType: 'application/json',
+      headers: headers,
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+    UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    Logger.log('WhatsApp notification error: ' + err.toString());
+  }
+}
+
 function doGet(e) {
   return HtmlService.createHtmlOutput(getAdminHtml())
     .setTitle('WaffleWalks Admin 🐾')
@@ -137,6 +185,7 @@ function doPost(e) {
     }
 
     var data = JSON.parse(e.postData.contents);
+    Logger.log('Received data: ' + JSON.stringify(data));
 
     // Append row to sheet
     var now = new Date();
@@ -150,6 +199,9 @@ function doPost(e) {
       data.nothingChecked ? '✓' : '',
       data.duration || ''
     ]);
+
+    // Send WhatsApp notification
+    sendWhatsAppNotification(data);
 
     // Send notification emails
     sendNotification(data);
