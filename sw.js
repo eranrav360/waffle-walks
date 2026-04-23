@@ -1,4 +1,4 @@
-const CACHE_NAME = 'waffle-walks-v1';
+const CACHE_NAME = 'waffle-walks-v2';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

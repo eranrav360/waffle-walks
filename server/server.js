@@ -65,19 +65,19 @@ async function getRecipientsFor(type) {
 // ── WhatsApp (WAHA) ────────────────────────────────────────────────────────────
 
 async function sendWhatsApp(text) {
+  const base = process.env.WAHA_BASE_URL;
+  const session = process.env.WAHA_SESSION || 'default';
+  if (!base) { console.error('WAHA_BASE_URL not set'); return; }
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (process.env.WAHA_API_KEY) headers['X-Api-Key'] = process.env.WAHA_API_KEY;
-    const res = await fetch(`${process.env.WAHA_BASE_URL}/api/sendText`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        chatId:  process.env.WHATSAPP_GROUP_ID,
-        text,
-        session: process.env.WAHA_SESSION || 'default',
-      }),
-    });
-    if (!res.ok) console.error('WAHA error:', res.status, await res.text());
+    const url = `${base}/api/sendText`;
+    const body = JSON.stringify({ chatId: process.env.WHATSAPP_GROUP_ID, text, session });
+    console.log('WAHA send →', url, body);
+    const res = await fetch(url, { method: 'POST', headers, body });
+    const resText = await res.text();
+    if (!res.ok) console.error('WAHA error:', res.status, resText);
+    else console.log('WAHA ok:', res.status, resText);
   } catch (err) {
     console.error('WhatsApp send failed:', err.message);
   }
@@ -450,6 +450,25 @@ app.post('/api/admin/config', requireAdmin, async (req, res) => {
 app.post('/api/admin/triggers', requireAdmin, async (_req, res) => {
   await startCrons();
   res.json({ result: 'success' });
+});
+
+app.get('/api/admin/waha-status', requireAdmin, async (_req, res) => {
+  const base = process.env.WAHA_BASE_URL;
+  if (!base) return res.json({ error: 'WAHA_BASE_URL not set' });
+  try {
+    const headers = {};
+    if (process.env.WAHA_API_KEY) headers['X-Api-Key'] = process.env.WAHA_API_KEY;
+    const r = await fetch(`${base}/api/sessions`, { headers });
+    const data = await r.json();
+    res.json({ status: r.status, sessions: data });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/waha-test', requireAdmin, async (_req, res) => {
+  await sendWhatsApp('🐶 WAHA test message from WaffleWalks server');
+  res.json({ result: 'sent — check server logs' });
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
