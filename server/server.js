@@ -34,7 +34,7 @@ const DEFAULT_NOTIFICATIONS = {
   'אורית': { walkNotification: true,  dailySummary: true,  weeklySummary: true,  monthlySummary: true,  reminder: false },
   'אהד':  { walkNotification: false, dailySummary: false, weeklySummary: false, monthlySummary: false, reminder: true  },
 };
-const DEFAULT_ALFRED = { enabled: true };
+const DEFAULT_ALFRED = { walkNotification: true, dailySummary: false, weeklySummary: false, monthlySummary: false, reminder: false };
 const DEFAULT_TIMES = { dailySummary: 8, weeklySummary: 8, monthlySummary: 8, reminder: 8 };
 
 // ── Config (PostgreSQL) ────────────────────────────────────────────────────────
@@ -222,6 +222,22 @@ async function buildLeaderboardHtml() {
   return h + '</table></div>';
 }
 
+function buildWaSummary(title, dateStr, walks, stats) {
+  if (!walks.length) return `🐕 ${title} — ${dateStr}\nלא היו טיולים 😴`;
+  const medals = ['🥇','🥈','🥉'];
+  const ranked = NAMES.map(n => ({ n, s: stats[n] })).filter(x => x.s.total > 0)
+    .sort((a, b) => b.s.total - a.s.total);
+  const lines = [`🐕 *${title}* — ${dateStr}`, `סה״כ ${walks.length} טיולים`, ''];
+  ranked.forEach(({ n, s }, i) => {
+    lines.push(`${medals[i] || '·'} ${n}: ${s.total} טיולים (💧${s.pipi} 💩${s.kaki})`);
+  });
+  const timeParts = [['🌅','morning','בוקר'],['☀️','noon','צהריים'],['🌆','evening','ערב'],['🌙','night','לילה']]
+    .map(([e, k, l]) => { const c = NAMES.reduce((s,n) => s + stats[n][k], 0); return c ? `${e}${l}: ${c}` : null; })
+    .filter(Boolean);
+  if (timeParts.length) { lines.push(''); lines.push(timeParts.join(' | ')); }
+  return lines.join('\n');
+}
+
 // ── Scheduled jobs ─────────────────────────────────────────────────────────────
 
 const activeCrons = [];
@@ -245,10 +261,10 @@ async function sendDailySummary() {
   const walks = await getWalksInRange(yesterday, today);
   const stats = buildStats(walks);
   const label = yesterday.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
-  const leaderboard = await buildLeaderboardHtml();
+  const [leaderboard, to, alfred] = await Promise.all([buildLeaderboardHtml(), getRecipientsFor('dailySummary'), getAlfredConfig()]);
   const html = buildSummaryHtml('סיכום יומי', label, walks, stats).replace('__LEADERBOARD__', leaderboard);
-  const to = await getRecipientsFor('dailySummary');
   await sendEmail({ to, subject: `🐕 סיכום יומי — ${label}`, text: `${label} | ${walks.length} טיולים`, html });
+  if (alfred.dailySummary) await sendWhatsApp(buildWaSummary('סיכום יומי', label, walks, stats));
 }
 
 async function sendWeeklySummary() {
@@ -258,9 +274,10 @@ async function sendWeeklySummary() {
   const stats = buildStats(walks);
   const fmt = d => d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
   const label = `${fmt(start)} — ${fmt(new Date(end - 86400000))}`;
+  const [to, alfred] = await Promise.all([getRecipientsFor('weeklySummary'), getAlfredConfig()]);
   const html = buildSummaryHtml('סיכום שבועי', label, walks, stats).replace('__LEADERBOARD__', '');
-  const to = await getRecipientsFor('weeklySummary');
   await sendEmail({ to, subject: `🐕 סיכום שבועי — ${label}`, text: `${label} | ${walks.length} טיולים`, html });
+  if (alfred.weeklySummary) await sendWhatsApp(buildWaSummary('סיכום שבועי', label, walks, stats));
 }
 
 async function sendMonthlySummary() {
@@ -270,19 +287,21 @@ async function sendMonthlySummary() {
   const walks = await getWalksInRange(start, end);
   const stats = buildStats(walks);
   const label = start.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+  const [to, alfred] = await Promise.all([getRecipientsFor('monthlySummary'), getAlfredConfig()]);
   const html = buildSummaryHtml('סיכום חודשי', label, walks, stats).replace('__LEADERBOARD__', '');
-  const to = await getRecipientsFor('monthlySummary');
   await sendEmail({ to, subject: `🐕 סיכום חודשי — ${label}`, text: `${label} | ${walks.length} טיולים`, html });
+  if (alfred.monthlySummary) await sendWhatsApp(buildWaSummary('סיכום חודשי', label, walks, stats));
 }
 
 async function sendDailyReminder() {
   const today = startOf('day');
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
   const walks = await getWalksInRange(yesterday, today);
-  if (!walks.length) return; // skip if nobody walked at all (family day off)
+  if (!walks.length) return;
   const walkedSet = new Set(walks.map(w => w.who));
-  const cfg = await getNotificationConfig();
+  const [cfg, alfred] = await Promise.all([getNotificationConfig(), getAlfredConfig()]);
   const dayStr = yesterday.toLocaleDateString('he-IL', { weekday: 'long' });
+  const slackers = NAMES.filter(n => !walkedSet.has(n));
   for (const name of NAMES) {
     if (walkedSet.has(name) || !cfg[name]?.reminder) continue;
     const to = NAME_EMAILS[name]; if (!to) continue;
@@ -294,6 +313,9 @@ async function sendDailyReminder() {
         <p style="font-size:16px;color:#666">שמנו לב שאתמול (${dayStr}) לא הוצאת את וופל לטיול.</p>
         <p style="font-size:16px;color:#666">וופל תשמח לצאת איתך היום! 🐾</p></div></div>`;
     await sendEmail({ to, subject: '🐕 וופל מחכה לך!', text: `היי ${name}, לא הוצאת את וופל אתמול (${dayStr}). היא מחכה לך!`, html });
+  }
+  if (alfred.reminder && slackers.length) {
+    await sendWhatsApp(`🐕 מי לא הוציא את וופל אתמול (${dayStr})?\n${slackers.map(n => `· ${n}`).join('\n')}\nוופל מחכה! 🐾`);
   }
 }
 
@@ -363,12 +385,8 @@ function load(){
     .catch(function(){st('❌ סיסמה שגויה','err')});
 }
 function render(cfg){
-  var n=cfg.notifications,t=cfg.times,a=cfg.alfred||{enabled:true};
-  var h='<h2>🤖 אלפרד — WhatsApp לקבוצה</h2>';
-  h+='<div style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #D7CCC8;border-radius:12px;margin-bottom:24px;background:#fafafa">';
-  h+='<input type="checkbox" id="alfredEnabled" '+(a.enabled?'checked':'')+' style="width:24px;height:24px;cursor:pointer;accent-color:#8B5E3C">';
-  h+='<label for="alfredEnabled" style="font-size:15px;color:#5D4037;cursor:pointer">שלח הודעת WhatsApp לקבוצה הרביבים בכל טיול</label></div>';
-  h+='<h2>התראות לפי אדם</h2><table><tr><th>שם</th>';
+  var n=cfg.notifications,t=cfg.times,a=cfg.alfred||{walkNotification:true,dailySummary:false,weeklySummary:false,monthlySummary:false,reminder:false};
+  var h='<h2>התראות לפי אדם</h2><table><tr><th>שם</th>';
   TYPES.forEach(function(tp){h+='<th>'+tp.label+'</th>';});
   h+='</tr>';
   NAMES.forEach(function(name){
@@ -379,6 +397,12 @@ function render(cfg){
     });
     h+='</tr>';
   });
+  h+='<tr style="background:#e8f5e9"><td style="color:#1B5E20">🤖 Alfred<br><small style="font-weight:normal;color:#388E3C">WhatsApp</small></td>';
+  TYPES.forEach(function(tp){
+    var chk=a[tp.key]?'checked':'';
+    h+='<td><input type="checkbox" data-alfred="'+tp.key+'" '+chk+' style="accent-color:#25D366"></td>';
+  });
+  h+='</tr>';
   h+='</table><h2>שעת שליחה (0–23)</h2><div class="time-row">';
   TYPES.filter(function(tp){return tp.key!=='walkNotification';}).forEach(function(tp){
     h+='<div class="time-field"><label>'+tp.label+'</label>';
@@ -399,7 +423,8 @@ function save(){
   TYPES.filter(function(tp){return tp.key!=='walkNotification';}).forEach(function(tp){
     times[tp.key]=parseInt(document.getElementById('time_'+tp.key).value)||8;
   });
-  var alfred={enabled:document.getElementById('alfredEnabled').checked};
+  var alfred={};
+  document.querySelectorAll('input[data-alfred]').forEach(function(cb){alfred[cb.dataset.alfred]=cb.checked;});
   st('שומר...','');
   fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pwd},body:JSON.stringify({notifications:notif,times:times,alfred:alfred})})
     .then(function(r){return r.ok?st('✅ נשמר בהצלחה!','ok'):Promise.reject()})
@@ -432,7 +457,7 @@ app.post('/api/walks', async (req, res) => {
       [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null]
     );
     getAlfredConfig().then(alfred => {
-      if (alfred.enabled) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
+      if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
     });
     sendWalkEmail(d).catch(console.error);
     res.json({ result: 'success' });
