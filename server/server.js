@@ -34,6 +34,7 @@ const DEFAULT_NOTIFICATIONS = {
   'אורית': { walkNotification: true,  dailySummary: true,  weeklySummary: true,  monthlySummary: true,  reminder: false },
   'אהד':  { walkNotification: false, dailySummary: false, weeklySummary: false, monthlySummary: false, reminder: true  },
 };
+const DEFAULT_ALFRED = { enabled: true };
 const DEFAULT_TIMES = { dailySummary: 8, weeklySummary: 8, monthlySummary: 8, reminder: 8 };
 
 // ── Config (PostgreSQL) ────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ async function setConfig(key, value) {
 
 const getNotificationConfig = () => getConfig('notifications', DEFAULT_NOTIFICATIONS);
 const getTimeConfig          = () => getConfig('times', DEFAULT_TIMES);
+const getAlfredConfig        = () => getConfig('alfred', DEFAULT_ALFRED);
 
 async function getRecipientsFor(type) {
   const cfg = await getNotificationConfig();
@@ -361,8 +363,12 @@ function load(){
     .catch(function(){st('❌ סיסמה שגויה','err')});
 }
 function render(cfg){
-  var n=cfg.notifications,t=cfg.times;
-  var h='<h2>התראות לפי אדם</h2><table><tr><th>שם</th>';
+  var n=cfg.notifications,t=cfg.times,a=cfg.alfred||{enabled:true};
+  var h='<h2>🤖 אלפרד — WhatsApp לקבוצה</h2>';
+  h+='<div style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid #D7CCC8;border-radius:12px;margin-bottom:24px;background:#fafafa">';
+  h+='<input type="checkbox" id="alfredEnabled" '+(a.enabled?'checked':'')+' style="width:24px;height:24px;cursor:pointer;accent-color:#8B5E3C">';
+  h+='<label for="alfredEnabled" style="font-size:15px;color:#5D4037;cursor:pointer">שלח הודעת WhatsApp לקבוצה הרביבים בכל טיול</label></div>';
+  h+='<h2>התראות לפי אדם</h2><table><tr><th>שם</th>';
   TYPES.forEach(function(tp){h+='<th>'+tp.label+'</th>';});
   h+='</tr>';
   NAMES.forEach(function(name){
@@ -393,8 +399,9 @@ function save(){
   TYPES.filter(function(tp){return tp.key!=='walkNotification';}).forEach(function(tp){
     times[tp.key]=parseInt(document.getElementById('time_'+tp.key).value)||8;
   });
+  var alfred={enabled:document.getElementById('alfredEnabled').checked};
   st('שומר...','');
-  fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pwd},body:JSON.stringify({notifications:notif,times:times})})
+  fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pwd},body:JSON.stringify({notifications:notif,times:times,alfred:alfred})})
     .then(function(r){return r.ok?st('✅ נשמר בהצלחה!','ok'):Promise.reject()})
     .catch(function(){st('❌ שגיאה בשמירה','err')});
 }
@@ -424,7 +431,9 @@ app.post('/api/walks', async (req, res) => {
       'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration) VALUES ($1,$2,$3,$4,$5,$6)',
       [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null]
     );
-    sendWhatsApp(buildWalkMessage(d)).catch(console.error);
+    getAlfredConfig().then(alfred => {
+      if (alfred.enabled) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
+    });
     sendWalkEmail(d).catch(console.error);
     res.json({ result: 'success' });
   } catch (err) {
@@ -436,14 +445,15 @@ app.post('/api/walks', async (req, res) => {
 app.get('/admin', (_req, res) => res.send(ADMIN_HTML));
 
 app.get('/api/admin/config', requireAdmin, async (_req, res) => {
-  const [notifications, times] = await Promise.all([getNotificationConfig(), getTimeConfig()]);
-  res.json({ notifications, times });
+  const [notifications, times, alfred] = await Promise.all([getNotificationConfig(), getTimeConfig(), getAlfredConfig()]);
+  res.json({ notifications, times, alfred });
 });
 
 app.post('/api/admin/config', requireAdmin, async (req, res) => {
-  const { notifications, times } = req.body;
+  const { notifications, times, alfred } = req.body;
   if (notifications) await setConfig('notifications', notifications);
   if (times)         await setConfig('times', times);
+  if (alfred !== undefined) await setConfig('alfred', alfred);
   res.json({ result: 'success' });
 });
 
