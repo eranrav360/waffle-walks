@@ -54,7 +54,10 @@ async function setConfig(key, value) {
 
 const getNotificationConfig = () => getConfig('notifications', DEFAULT_NOTIFICATIONS);
 const getTimeConfig          = () => getConfig('times', DEFAULT_TIMES);
-const getAlfredConfig        = () => getConfig('alfred', DEFAULT_ALFRED);
+const getAlfredConfig        = () => getConfig('alfred', DEFAULT_ALFRED).then(a =>
+  // migrate old { enabled } format to per-type format
+  ('enabled' in a) ? { ...DEFAULT_ALFRED, walkNotification: !!a.enabled } : a
+);
 
 async function getRecipientsFor(type) {
   const cfg = await getNotificationConfig();
