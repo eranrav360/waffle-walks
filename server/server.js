@@ -98,7 +98,8 @@ function buildWalkMessage(data) {
   if (data.pipiChecked) parts.push('פיפי');
   if (data.kakiChecked) parts.push('קקי');
   const resultLine = data.nothingChecked ? 'לא עשתה כלום' : 'עשתה ' + parts.join(' ו');
-  return `🐶 וופל יצאה לטיול עם ${data.who}\n${resultLine}\n${greeting}`;
+  const dayNote = data.dayOffset === 1 ? ' (דיווח על אתמול)' : '';
+  return `🐶 וופל יצאה לטיול עם ${data.who}${dayNote}\n${resultLine}\n${greeting}`;
 }
 
 // ── Email (Resend) ─────────────────────────────────────────────────────────────
@@ -126,6 +127,9 @@ async function sendWalkEmail(data) {
   if (data.pipiChecked)  what.push('פיפי 💧');
   if (data.kakiChecked)  what.push('קקי 💩');
   if (data.nothingChecked) what.push('כלום 🚫');
+  const dayRow = data.dayOffset === 1
+    ? `<tr style="background:#f5f0eb"><td style="padding:10px;font-weight:bold;color:#5D4037">יום:</td><td style="padding:10px">אתמול</td></tr>`
+    : '';
   const html = `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px">
     <div style="background:#8B5E3C;padding:20px;border-radius:12px 12px 0 0;text-align:center">
       <h1 style="color:white;margin:0">🐕 וופל יצאה לטייל!</h1></div>
@@ -133,10 +137,11 @@ async function sendWalkEmail(data) {
       <table style="width:100%;border-collapse:collapse">
         <tr><td style="padding:10px;font-weight:bold;color:#5D4037">מי:</td><td style="padding:10px">${data.who}</td></tr>
         <tr style="background:#f5f0eb"><td style="padding:10px;font-weight:bold;color:#5D4037">מתי:</td><td style="padding:10px">${data.when}</td></tr>
+        ${dayRow}
         <tr><td style="padding:10px;font-weight:bold;color:#5D4037">מה עשתה:</td><td style="padding:10px">${what.join(', ')}</td></tr>
         ${data.duration ? `<tr style="background:#f5f0eb"><td style="padding:10px;font-weight:bold;color:#5D4037">משך:</td><td style="padding:10px">${data.duration}</td></tr>` : ''}
       </table></div></div>`;
-  await sendEmail({ to, subject: '🐕 וופל יצאה לטייל!', text: `מי: ${data.who} | מתי: ${data.when} | ${what.join(', ')}`, html });
+  await sendEmail({ to, subject: '🐕 וופל יצאה לטייל!', text: `מי: ${data.who} | מתי: ${data.when}${data.dayOffset === 1 ? ' (אתמול)' : ''} | ${what.join(', ')}`, html });
 }
 
 // ── Summary helpers ────────────────────────────────────────────────────────────
@@ -455,9 +460,10 @@ function requireAdmin(req, res, next) {
 app.post('/api/walks', async (req, res) => {
   const d = req.body;
   try {
+    const createdAt = d.dayOffset === 1 ? new Date(Date.now() - 86400000) : new Date();
     await pool.query(
-      'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration) VALUES ($1,$2,$3,$4,$5,$6)',
-      [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null]
+      'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null, createdAt]
     );
     getAlfredConfig().then(alfred => {
       if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d)).catch(console.error);

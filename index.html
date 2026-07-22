@@ -262,6 +262,15 @@
             <h1>וופל יצאה לטייל!</h1>
         </div>
 
+        <!-- Day -->
+        <div class="section">
+            <div class="section-label">איזה יום? 📅</div>
+            <div class="duration-options" id="dayToggle" style="grid-template-columns: 1fr 1fr;">
+                <button class="duration-btn day-btn selected" data-val="0">היום</button>
+                <button class="duration-btn day-btn" data-val="1">אתמול</button>
+            </div>
+        </div>
+
         <!-- When -->
         <div class="section">
             <div class="section-label">מתי? 🕐</div>
@@ -434,6 +443,16 @@
         }
     })();
 
+    // Day — single-select toggle (today / yesterday)
+    let selectedDayOffset = 0;
+    document.querySelectorAll('.day-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedDayOffset = parseInt(btn.dataset.val, 10);
+        });
+    });
+
     // Duration — optional single-select toggle
     let selectedDuration = null;
     document.querySelectorAll('.duration-btn').forEach(btn => {
@@ -492,6 +511,7 @@
             timestamp: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }),
             who: selectedWho,
             when: document.getElementById('whenSelect').value,
+            dayOffset: selectedDayOffset,
             pipiChecked: document.getElementById('cbPipi').checked,
             kakiChecked: document.getElementById('cbKaki').checked,
             nothingChecked: document.getElementById('cbNothing').checked,
@@ -533,6 +553,8 @@
         document.querySelectorAll('.what-option').forEach(o => o.classList.remove('checked'));
         selectedDuration = null;
         document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
+        selectedDayOffset = 0;
+        document.querySelector('.day-btn[data-val="0"]').classList.add('selected');
         document.getElementById('submitBtn').disabled = true;
         document.getElementById('submitBtn').textContent = 'שליחה';
         document.getElementById('statusMsg').textContent = '';
