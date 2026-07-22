@@ -99,7 +99,8 @@ function buildWalkMessage(data) {
   if (data.kakiChecked) parts.push('קקי');
   const resultLine = data.nothingChecked ? 'לא עשתה כלום' : 'עשתה ' + parts.join(' ו');
   const dayNote = data.dayOffset === 1 ? ' (דיווח על אתמול)' : '';
-  return `🐶 וופל יצאה לטיול עם ${data.who}${dayNote}\n${resultLine}\n${greeting}`;
+  const durationLine = data.duration ? `\n⏱️ ${data.duration}` : '';
+  return `🐶 וופל יצאה לטיול עם ${data.who}${dayNote}\n${resultLine}${durationLine}\n${greeting}`;
 }
 
 // ── Email (Resend) ─────────────────────────────────────────────────────────────
