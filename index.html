@@ -235,6 +235,13 @@
             line-height: 1.6;
         }
 
+        .streak-msg {
+            color: #E65100;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 4px 0 0;
+        }
+
         /* Loading spinner */
         .spinner {
             display: inline-block;
@@ -322,6 +329,7 @@
     <div class="success-screen" id="successView">
         <div class="icon">🐾</div>
         <h2 id="successTitle"></h2>
+        <p class="streak-msg" id="streakMsg"></p>
         <p class="success-quote" id="successQuote"></p>
         <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
     </div>
@@ -526,11 +534,14 @@
             });
 
             if (!response.ok) throw new Error('server error ' + response.status);
+            const result = await response.json().catch(() => ({}));
             document.getElementById('formView').style.display = 'none';
             document.getElementById('successView').style.display = 'block';
 
             const name = data.who || 'חברנו';
             document.getElementById('successTitle').textContent = `${name}, וופל מודה לך! 🐾`;
+            document.getElementById('streakMsg').textContent =
+                result.streak >= 2 ? `🔥 ${result.streak} ימים ברצף!` : '';
             const pool = name === 'תהל' ? STRANGER_THINGS_FACTS
                        : (name === 'אהד' || name === 'אוהד') ? EUROVISION_FACTS
                        : THANK_YOU_QUOTES;
@@ -558,6 +569,7 @@
         document.getElementById('submitBtn').disabled = true;
         document.getElementById('submitBtn').textContent = 'שליחה';
         document.getElementById('statusMsg').textContent = '';
+        document.getElementById('streakMsg').textContent = '';
 
         // Re-auto-select time and greeting
         const time = getTimeOfDay();

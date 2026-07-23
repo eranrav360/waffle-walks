@@ -145,6 +145,33 @@ async function sendWalkEmail(data) {
   await sendEmail({ to, subject: '🐕 וופל יצאה לטייל!', text: `מי: ${data.who} | מתי: ${data.when}${data.dayOffset === 1 ? ' (אתמול)' : ''} | ${what.join(', ')}`, html });
 }
 
+// ── Streaks ────────────────────────────────────────────────────────────────────
+
+function jerusalemDateStr(d) {
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+}
+
+function addDaysStr(dateStr, delta) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+async function getStreak(who, referenceDateStr) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT (created_at AT TIME ZONE 'Asia/Jerusalem')::date AS day FROM walks WHERE who = $1`,
+    [who]
+  );
+  const days = new Set(rows.map(r => r.day.toISOString().slice(0, 10)));
+  let streak = 0;
+  let cursor = referenceDateStr;
+  while (days.has(cursor)) {
+    streak++;
+    cursor = addDaysStr(cursor, -1);
+  }
+  return streak;
+}
+
 // ── Summary helpers ────────────────────────────────────────────────────────────
 
 async function getWalksInRange(start, end) {
@@ -470,7 +497,8 @@ app.post('/api/walks', async (req, res) => {
       if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
     });
     sendWalkEmail(d).catch(console.error);
-    res.json({ result: 'success' });
+    const streak = await getStreak(d.who, jerusalemDateStr(createdAt));
+    res.json({ result: 'success', streak });
   } catch (err) {
     console.error('Walk error:', err);
     res.status(500).json({ result: 'error', error: err.message });
