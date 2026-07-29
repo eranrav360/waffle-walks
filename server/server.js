@@ -157,12 +157,16 @@ function addDaysStr(dateStr, delta) {
   return d.toISOString().slice(0, 10);
 }
 
-async function getStreak(who, referenceDateStr) {
+async function getWalkDays(who) {
   const { rows } = await pool.query(
     `SELECT DISTINCT (created_at AT TIME ZONE 'Asia/Jerusalem')::date AS day FROM walks WHERE who = $1`,
     [who]
   );
-  const days = new Set(rows.map(r => r.day.toISOString().slice(0, 10)));
+  return rows.map(r => r.day.toISOString().slice(0, 10));
+}
+
+async function getStreak(who, referenceDateStr) {
+  const days = new Set(await getWalkDays(who));
   let streak = 0;
   let cursor = referenceDateStr;
   while (days.has(cursor)) {
@@ -170,6 +174,37 @@ async function getStreak(who, referenceDateStr) {
     cursor = addDaysStr(cursor, -1);
   }
   return streak;
+}
+
+// Longest-ever run of consecutive days, regardless of when it happened.
+function longestStreak(dayStrs) {
+  if (!dayStrs.length) return 0;
+  const sorted = [...new Set(dayStrs)].sort();
+  let longest = 1, current = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    current = addDaysStr(sorted[i - 1], 1) === sorted[i] ? current + 1 : 1;
+    longest = Math.max(longest, current);
+  }
+  return longest;
+}
+
+async function getGoatStreak(who) {
+  return longestStreak(await getWalkDays(who));
+}
+
+function joinNames(names) {
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} ו${names[names.length - 1]}`;
+}
+
+// Whoever currently has the longest active streak, as of today.
+async function getFamilyLeader() {
+  const today = jerusalemDateStr(new Date());
+  const results = await Promise.all(NAMES.map(async name => ({ name, streak: await getStreak(name, today) })));
+  const max = Math.max(...results.map(r => r.streak));
+  if (max === 0) return null;
+  const names = results.filter(r => r.streak === max).map(r => r.name);
+  return { label: joinNames(names), streak: max };
 }
 
 // ── Summary helpers ────────────────────────────────────────────────────────────
@@ -497,8 +532,12 @@ app.post('/api/walks', async (req, res) => {
       if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
     });
     sendWalkEmail(d).catch(console.error);
-    const streak = await getStreak(d.who, jerusalemDateStr(createdAt));
-    res.json({ result: 'success', streak });
+    const [streak, goat, leader] = await Promise.all([
+      getStreak(d.who, jerusalemDateStr(createdAt)),
+      getGoatStreak(d.who),
+      getFamilyLeader(),
+    ]);
+    res.json({ result: 'success', streak, goat, leader });
   } catch (err) {
     console.error('Walk error:', err);
     res.status(500).json({ result: 'error', error: err.message });

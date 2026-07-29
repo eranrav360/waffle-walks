@@ -242,6 +242,13 @@
             margin: 4px 0 0;
         }
 
+        .goat-msg, .leader-msg {
+            color: #6D4C2A;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 4px 0 0;
+        }
+
         /* Loading spinner */
         .spinner {
             display: inline-block;
@@ -330,6 +337,8 @@
         <div class="icon">🐾</div>
         <h2 id="successTitle"></h2>
         <p class="streak-msg" id="streakMsg"></p>
+        <p class="goat-msg" id="goatMsg"></p>
+        <p class="leader-msg" id="leaderMsg"></p>
         <p class="success-quote" id="successQuote"></p>
         <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
     </div>
@@ -540,8 +549,13 @@
 
             const name = data.who || 'חברנו';
             document.getElementById('successTitle').textContent = `${name}, וופל מודה לך! 🐾`;
-            document.getElementById('streakMsg').textContent =
-                result.streak >= 2 ? `🔥 ${result.streak} ימים ברצף!` : '';
+            document.getElementById('streakMsg').textContent = result.streak >= 2
+                ? `🔥 ${result.streak} ימים ברצף!${result.streak === result.goat ? ' (שיא אישי חדש 🎉)' : ''}`
+                : '';
+            document.getElementById('goatMsg').textContent =
+                (result.goat >= 2 && result.goat > result.streak) ? `🐐 השיא האישי שלך: ${result.goat} ימים ברצף` : '';
+            document.getElementById('leaderMsg').textContent =
+                (result.leader && result.leader.streak >= 2) ? `👑 מוביל/ה כרגע: ${result.leader.label} (${result.leader.streak} ימים ברצף)` : '';
             const pool = name === 'תהל' ? STRANGER_THINGS_FACTS
                        : (name === 'אהד' || name === 'אוהד') ? EUROVISION_FACTS
                        : THANK_YOU_QUOTES;
@@ -570,6 +584,8 @@
         document.getElementById('submitBtn').textContent = 'שליחה';
         document.getElementById('statusMsg').textContent = '';
         document.getElementById('streakMsg').textContent = '';
+        document.getElementById('goatMsg').textContent = '';
+        document.getElementById('leaderMsg').textContent = '';
 
         // Re-auto-select time and greeting
         const time = getTimeOfDay();
