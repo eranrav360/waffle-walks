@@ -242,6 +242,33 @@
             margin: 4px 0 0;
         }
 
+        .badge-card {
+            margin: 10px auto 0;
+            max-width: 260px;
+            padding: 10px 14px;
+            border: 2px solid #F9A825;
+            border-radius: 14px;
+            background: #FFF8E1;
+            color: #6D4C2A;
+            font-weight: 700;
+            font-size: 15px;
+            animation: badge-pop 0.5s ease-out;
+        }
+
+        .badge-card small {
+            display: block;
+            margin-top: 2px;
+            font-weight: 500;
+            font-size: 12px;
+            color: #8D6E63;
+        }
+
+        @keyframes badge-pop {
+            0% { transform: scale(0.6); opacity: 0; }
+            70% { transform: scale(1.08); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
         .goat-msg, .leader-msg {
             color: #6D4C2A;
             font-size: 14px;
@@ -339,6 +366,7 @@
         <p class="streak-msg" id="streakMsg"></p>
         <p class="goat-msg" id="goatMsg"></p>
         <p class="leader-msg" id="leaderMsg"></p>
+        <div id="badgeList"></div>
         <p class="success-quote" id="successQuote"></p>
         <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
     </div>
@@ -556,6 +584,17 @@
                 (result.goat >= 2 && result.goat > result.streak) ? `🐐 השיא האישי שלך: ${result.goat} ימים ברצף` : '';
             document.getElementById('leaderMsg').textContent =
                 (result.leader && result.leader.streak >= 2) ? `👑 מוביל/ה כרגע: ${result.leader.label} (${result.leader.streak} ימים ברצף)` : '';
+            const badgeList = document.getElementById('badgeList');
+            badgeList.textContent = '';
+            (result.badges || []).forEach(b => {
+                const card = document.createElement('div');
+                card.className = 'badge-card';
+                card.textContent = `🏅 תג חדש: ${b.emoji} ${b.name}`;
+                const desc = document.createElement('small');
+                desc.textContent = b.desc;
+                card.appendChild(desc);
+                badgeList.appendChild(card);
+            });
             const pool = name === 'תהל' ? STRANGER_THINGS_FACTS
                        : (name === 'אהד' || name === 'אוהד') ? EUROVISION_FACTS
                        : THANK_YOU_QUOTES;
@@ -586,6 +625,7 @@
         document.getElementById('streakMsg').textContent = '';
         document.getElementById('goatMsg').textContent = '';
         document.getElementById('leaderMsg').textContent = '';
+        document.getElementById('badgeList').textContent = '';
 
         // Re-auto-select time and greeting
         const time = getTimeOfDay();

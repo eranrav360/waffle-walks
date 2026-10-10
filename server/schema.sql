@@ -18,6 +18,14 @@ CREATE TABLE walks (
   duration   VARCHAR(100)
 );
 
+-- Also created automatically at server startup (ensureBadgesTable in server.js)
+CREATE TABLE badges (
+  who        VARCHAR(100) NOT NULL,
+  badge_key  VARCHAR(50)  NOT NULL,
+  earned_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (who, badge_key)
+);
+
 CREATE TABLE app_config (
   key   VARCHAR(100) PRIMARY KEY,
   value TEXT NOT NULL

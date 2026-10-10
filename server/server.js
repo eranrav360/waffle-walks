@@ -88,7 +88,7 @@ async function sendWhatsApp(text) {
   }
 }
 
-function buildWalkMessage(data) {
+function buildWalkMessage(data, newBadges = []) {
   const greetings = [
     'שיהיה לכולם ערב מקסים!', 'שיהיה לכולם יום נפלא!', 'שיהיה לכולם בוקר טוב!',
     'חבקו אותה חזק! 🤗', 'היא מחכה לכולם בבית! 🏠', 'היא אוהבת אתכם! ❤️',
@@ -100,7 +100,8 @@ function buildWalkMessage(data) {
   const resultLine = data.nothingChecked ? 'לא עשתה כלום' : 'עשתה ' + parts.join(' ו');
   const dayNote = data.dayOffset === 1 ? ' (דיווח על אתמול)' : '';
   const durationLine = data.duration ? `\n⏱️ ${data.duration}` : '';
-  return `🐶 וופל יצאה לטיול עם ${data.who}${dayNote}\n${resultLine}${durationLine}\n${greeting}`;
+  const badgeLines = newBadges.map(b => `\n🏅 תג חדש: ${b.emoji} ${b.name}`).join('');
+  return `🐶 וופל יצאה לטיול עם ${data.who}${dayNote}\n${resultLine}${durationLine}${badgeLines}\n${greeting}`;
 }
 
 // ── Email (Resend) ─────────────────────────────────────────────────────────────
@@ -205,6 +206,117 @@ async function getFamilyLeader() {
   if (max === 0) return null;
   const names = results.filter(r => r.streak === max).map(r => r.name);
   return { label: joinNames(names), streak: max };
+}
+
+// ── Badges ─────────────────────────────────────────────────────────────────────
+
+const isOhad = s => s.who === 'אהד' || s.who === 'אוהד';
+
+const BADGES = [
+  // Streaks (best-ever run of consecutive days)
+  { key: 'streak3',  emoji: '🔥', name: 'הצתה',            desc: '3 ימים ברצף',        test: s => s.bestStreak >= 3 },
+  { key: 'streak7',  emoji: '🔥', name: 'שבוע של אש',      desc: '7 ימים ברצף',        test: s => s.bestStreak >= 7 },
+  { key: 'streak14', emoji: '🌋', name: 'שבועיים בוערים',  desc: '14 ימים ברצף',       test: s => s.bestStreak >= 14 },
+  { key: 'streak30', emoji: '☄️', name: 'חודש של להבות',   desc: '30 ימים ברצף',       test: s => s.bestStreak >= 30 },
+  // Volume
+  { key: 'walks10',  emoji: '🐾', name: 'כוכב עולה',       desc: '10 טיולים',          test: s => s.total >= 10 },
+  { key: 'walks50',  emoji: '🦮', name: 'מטייל מקצועי',    desc: '50 טיולים',          test: s => s.total >= 50 },
+  { key: 'walks100', emoji: '💯', name: 'מאה!',            desc: '100 טיולים',         test: s => s.total >= 100 },
+  { key: 'walks250', emoji: '👑', name: 'אגדה',            desc: '250 טיולים',         test: s => s.total >= 250 },
+  // Time of day
+  { key: 'earlybird', emoji: '🌅', name: 'ציפור בוקר',     desc: '10 טיולי בוקר',      test: s => s.morning >= 10 },
+  { key: 'nightowl',  emoji: '🌙', name: 'ינשוף לילה',     desc: '10 טיולי לילה',      test: s => s.night >= 10 },
+  { key: 'fullday',   emoji: '🎯', name: 'יום מלא',        desc: 'המשפחה כיסתה את כל חלקי היום', test: s => s.fullDay },
+  // Duration & outcome
+  { key: 'marathon',  emoji: '🏃', name: 'מרתוניסט',       desc: '10 טיולים של 10+ דקות', test: s => s.long >= 10 },
+  { key: 'poop25',    emoji: '💩', name: 'סיירת קקי',      desc: '25 קקי',             test: s => s.poops >= 25 },
+  { key: 'mission',   emoji: '🎉', name: 'משימה הושלמה',   desc: 'פיפי וקקי באותו טיול', test: s => s.missions >= 1 },
+  { key: 'zero',      emoji: '🚫', name: 'גיבור האפס',     desc: '3 טיולים בלי כלום',  test: s => s.nothings >= 3 },
+  // Situational
+  { key: 'rescuer',   emoji: '🦸', name: 'המציל',          desc: 'פתחת יום אחרי יום שבו אף אחד לא טייל', test: s => s.rescuer },
+  { key: 'comeback',  emoji: '🔄', name: 'קאמבק',          desc: 'חזרת אחרי שבוע או יותר', test: s => s.comeback },
+  { key: 'yesterday', emoji: '📅', name: 'גיבור האתמול',   desc: 'דיווחת על טיול של אתמול', test: s => s.backdated },
+  // Personal flavor
+  { key: 'eleven',    emoji: '🌀', name: 'Eleven',         desc: '11 טיולים',          test: s => s.who === 'תהל' && s.total >= 11 },
+  { key: 'douze',     emoji: '🎤', name: 'Douze Points',   desc: '12 טיולים',          test: s => isOhad(s) && s.total >= 12 },
+];
+
+async function ensureBadgesTable() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS badges (
+    who        VARCHAR(100) NOT NULL,
+    badge_key  VARCHAR(50)  NOT NULL,
+    earned_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (who, badge_key)
+  )`);
+  // First run: silently grant what people already earned so the first walk
+  // after deploy doesn't announce a dozen badges at once.
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM badges');
+  if (rows[0].n === 0) {
+    for (const name of NAMES) await awardBadges(name, {});
+    console.log('Badges backfilled from walk history');
+  }
+}
+
+async function getBadgeStats(who, event) {
+  const { rows } = await pool.query(
+    'SELECT created_at, when_time, pipi, kaki, nothing, duration FROM walks WHERE who = $1',
+    [who]
+  );
+  const days = rows.map(r => jerusalemDateStr(new Date(r.created_at)));
+  return {
+    who,
+    total: rows.length,
+    bestStreak: longestStreak(days),
+    morning: rows.filter(r => r.when_time === 'בוקר').length,
+    night: rows.filter(r => r.when_time === 'לילה').length,
+    poops: rows.filter(r => r.kaki).length,
+    nothings: rows.filter(r => r.nothing).length,
+    long: rows.filter(r => (r.duration || '').startsWith('10+')).length,
+    missions: rows.filter(r => r.pipi && r.kaki).length,
+    ...event,
+  };
+}
+
+// Badges that depend on what just happened rather than on totals.
+async function getBadgeEvent(who, createdAt, dayOffset) {
+  const day = jerusalemDateStr(createdAt);
+  const prevDay = addDaysStr(day, -1);
+  const dayExpr = `(created_at AT TIME ZONE 'Asia/Jerusalem')::date`;
+  const { rows } = await pool.query(
+    `SELECT who, when_time, ${dayExpr} AS day FROM walks WHERE ${dayExpr} BETWEEN $1::date AND $2::date`,
+    [prevDay, day]
+  );
+  const byDay = d => rows.filter(r => r.day.toISOString().slice(0, 10) === d);
+  const today = byDay(day), yesterday = byDay(prevDay);
+
+  const older = await pool.query(`SELECT 1 FROM walks WHERE ${dayExpr} < $1::date LIMIT 1`, [prevDay]);
+  const last = await pool.query(
+    `SELECT MAX(${dayExpr}) AS d FROM walks WHERE who = $1 AND ${dayExpr} < $2::date`,
+    [who, day]
+  );
+  const lastDay = last.rows[0].d;
+  const gapDays = lastDay ? Math.round((new Date(day + 'T00:00:00Z') - lastDay) / 86400000) : 0;
+
+  return {
+    fullDay: new Set(today.map(r => r.when_time)).size >= 4,
+    rescuer: older.rows.length > 0 && yesterday.length === 0 && today.every(r => r.who === who),
+    comeback: gapDays >= 7,
+    backdated: dayOffset === 1,
+  };
+}
+
+// Grants any newly-earned badges and returns just those.
+async function awardBadges(who, event) {
+  const stats = await getBadgeStats(who, event);
+  const earned = BADGES.filter(b => b.test(stats));
+  if (!earned.length) return [];
+  const { rows } = await pool.query('SELECT badge_key FROM badges WHERE who = $1', [who]);
+  const have = new Set(rows.map(r => r.badge_key));
+  const fresh = earned.filter(b => !have.has(b.key));
+  for (const b of fresh) {
+    await pool.query('INSERT INTO badges (who, badge_key) VALUES ($1, $2) ON CONFLICT DO NOTHING', [who, b.key]);
+  }
+  return fresh.map(({ key, emoji, name, desc }) => ({ key, emoji, name, desc }));
 }
 
 // ── Summary helpers ────────────────────────────────────────────────────────────
@@ -528,8 +640,15 @@ app.post('/api/walks', async (req, res) => {
       'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null, createdAt]
     );
+    // Badges must never block saving a walk or sending notifications.
+    let badges = [];
+    try {
+      badges = await awardBadges(d.who, await getBadgeEvent(d.who, createdAt, d.dayOffset));
+    } catch (err) {
+      console.error('Badge error:', err);
+    }
     getAlfredConfig().then(alfred => {
-      if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d)).catch(console.error);
+      if (alfred.walkNotification) sendWhatsApp(buildWalkMessage(d, badges)).catch(console.error);
     });
     sendWalkEmail(d).catch(console.error);
     const [streak, goat, leader] = await Promise.all([
@@ -537,7 +656,7 @@ app.post('/api/walks', async (req, res) => {
       getGoatStreak(d.who),
       getFamilyLeader(),
     ]);
-    res.json({ result: 'success', streak, goat, leader });
+    res.json({ result: 'success', streak, goat, leader, badges });
   } catch (err) {
     console.error('Walk error:', err);
     res.status(500).json({ result: 'error', error: err.message });
@@ -588,5 +707,6 @@ app.post('/api/admin/waha-test', requireAdmin, async (_req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`WaffleWalks listening on port ${PORT}`);
+  await ensureBadgesTable().catch(err => console.error('Badges setup failed:', err));
   await startCrons();
 });
