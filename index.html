@@ -242,6 +242,93 @@
             margin: 4px 0 0;
         }
 
+        /* Tabs + awards */
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 4px;
+            margin-bottom: 20px;
+            background: #F5EEE8;
+            border-radius: 14px;
+        }
+
+        .tab-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 11px;
+            background: transparent;
+            color: #8D6E63;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #5D4037;
+            box-shadow: 0 1px 4px rgba(139, 94, 60, 0.2);
+        }
+
+        .awards-summary {
+            text-align: center;
+            color: #5D4037;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .awards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .award {
+            padding: 12px 8px;
+            border: 2px solid #F9A825;
+            border-radius: 14px;
+            background: #FFF8E1;
+            text-align: center;
+        }
+
+        .award.locked {
+            border-color: #E0D6D0;
+            background: #FAFAFA;
+        }
+
+        .award .a-emoji { font-size: 30px; }
+        .award.locked .a-emoji { filter: grayscale(1); opacity: 0.45; }
+
+        .award .a-name {
+            margin-top: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #5D4037;
+        }
+
+        .award.locked .a-name { color: #A1887F; }
+
+        .award .a-desc, .award .a-meta {
+            margin-top: 2px;
+            font-size: 11px;
+            color: #8D6E63;
+            line-height: 1.4;
+        }
+
+        .award.locked .a-desc { color: #BCAAA4; }
+
+        .award .a-bar {
+            height: 5px;
+            margin-top: 6px;
+            border-radius: 3px;
+            background: #EEE6E1;
+            overflow: hidden;
+        }
+
+        .award .a-bar > div { height: 100%; background: #F9A825; }
+
         .badge-card {
             margin: 10px auto 0;
             max-width: 260px;
@@ -295,6 +382,12 @@
 <body>
 
 <div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" id="tabReport" data-tab="report">🐾 דיווח</button>
+        <button class="tab-btn" id="tabAwards" data-tab="awards">🏅 תגים</button>
+    </div>
+
+    <div id="reportPane">
     <!-- Form -->
     <div id="formView">
         <div class="header">
@@ -369,6 +462,13 @@
         <div id="badgeList"></div>
         <p class="success-quote" id="successQuote"></p>
         <button class="reset-btn" onclick="resetForm()">טיול נוסף</button>
+    </div>
+    </div>
+
+    <!-- Awards -->
+    <div id="awardsView" style="display:none;">
+        <div class="awards-summary" id="awardsSummary"></div>
+        <div class="awards-grid" id="awardsGrid"></div>
     </div>
 </div>
 
@@ -497,6 +597,71 @@
             selectedDayOffset = parseInt(btn.dataset.val, 10);
         });
     });
+
+    // Tabs: report / awards
+    function showTab(tab) {
+        const awards = tab === 'awards';
+        document.getElementById('reportPane').style.display = awards ? 'none' : 'block';
+        document.getElementById('awardsView').style.display = awards ? 'block' : 'none';
+        document.getElementById('tabReport').classList.toggle('active', !awards);
+        document.getElementById('tabAwards').classList.toggle('active', awards);
+        if (awards) loadAwards();
+    }
+    document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+    async function loadAwards() {
+        const summary = document.getElementById('awardsSummary');
+        const grid = document.getElementById('awardsGrid');
+        grid.textContent = '';
+        if (!selectedWho) {
+            summary.textContent = 'כדי לראות תגים, פתחו את האפליקציה עם השם שלכם 🐾';
+            return;
+        }
+        summary.textContent = 'טוען...';
+        try {
+            const res = await fetch(`${APPS_SCRIPT_URL.replace(/\/walks$/, '')}/badges?who=${encodeURIComponent(selectedWho)}`);
+            if (!res.ok) throw new Error('server error ' + res.status);
+            const { badges } = await res.json();
+            const earnedCount = badges.filter(b => b.earned).length;
+            summary.textContent = `🏅 ${earnedCount} מתוך ${badges.length} תגים`;
+            // Earned first (newest first), then locked ones closest to unlocking.
+            badges.sort((a, b) => {
+                if (a.earned !== b.earned) return a.earned ? -1 : 1;
+                if (a.earned) return new Date(b.earnedAt) - new Date(a.earnedAt);
+                const pa = a.progress ? a.progress.current / a.progress.target : -1;
+                const pb = b.progress ? b.progress.current / b.progress.target : -1;
+                return pb - pa;
+            });
+            badges.forEach(b => {
+                const el = document.createElement('div');
+                el.className = 'award' + (b.earned ? '' : ' locked');
+                const add = (cls, text) => {
+                    const d = document.createElement('div');
+                    d.className = cls;
+                    d.textContent = text;
+                    el.appendChild(d);
+                    return d;
+                };
+                add('a-emoji', b.emoji);
+                add('a-name', b.name);
+                add('a-desc', b.desc);
+                if (b.earned) {
+                    add('a-meta', 'הושג ב-' + new Date(b.earnedAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' }));
+                } else if (b.progress) {
+                    add('a-meta', `${b.progress.current}/${b.progress.target}`);
+                    const bar = document.createElement('div');
+                    bar.className = 'a-bar';
+                    const fill = document.createElement('div');
+                    fill.style.width = Math.round(100 * b.progress.current / b.progress.target) + '%';
+                    bar.appendChild(fill);
+                    el.appendChild(bar);
+                }
+                grid.appendChild(el);
+            });
+        } catch (err) {
+            summary.textContent = 'שגיאה בטעינת התגים, נסו שוב';
+        }
+    }
 
     // Duration — optional single-select toggle
     let selectedDuration = null;

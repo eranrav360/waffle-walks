@@ -241,6 +241,21 @@ const BADGES = [
   { key: 'douze',     emoji: '🎤', name: 'Douze Points',   desc: '12 טיולים',          test: s => isOhad(s) && s.total >= 12 },
 ];
 
+// Which stat each countable badge tracks, and its target (for the Awards tab progress).
+const BADGE_PROGRESS = {
+  streak3: ['bestStreak', 3], streak7: ['bestStreak', 7], streak14: ['bestStreak', 14], streak30: ['bestStreak', 30],
+  walks10: ['total', 10], walks50: ['total', 50], walks100: ['total', 100], walks250: ['total', 250],
+  earlybird: ['morning', 10], nightowl: ['night', 10], marathon: ['long', 10],
+  poop25: ['poops', 25], zero: ['nothings', 3], mission: ['missions', 1],
+  eleven: ['total', 11], douze: ['total', 12],
+};
+
+// Personal badges that only exist for one person.
+const BADGE_ONLY = {
+  eleven: who => who === 'תהל',
+  douze: who => isOhad({ who }),
+};
+
 async function ensureBadgesTable() {
   await pool.query(`CREATE TABLE IF NOT EXISTS badges (
     who        VARCHAR(100) NOT NULL,
@@ -660,6 +675,34 @@ app.post('/api/walks', async (req, res) => {
   } catch (err) {
     console.error('Walk error:', err);
     res.status(500).json({ result: 'error', error: err.message });
+  }
+});
+
+// Awards tab: every badge this person can earn, with earned date or progress.
+app.get('/api/badges', async (req, res) => {
+  const who = String(req.query.who || '').trim();
+  if (!who) return res.status(400).json({ error: 'who is required' });
+  try {
+    const [stats, { rows }] = await Promise.all([
+      getBadgeStats(who, {}),
+      pool.query('SELECT badge_key, earned_at FROM badges WHERE who = $1', [who]),
+    ]);
+    const earnedAt = new Map(rows.map(r => [r.badge_key, r.earned_at]));
+    const badges = BADGES
+      .filter(b => !BADGE_ONLY[b.key] || BADGE_ONLY[b.key](who))
+      .map(({ key, emoji, name, desc }) => {
+        const earned = earnedAt.has(key);
+        const p = BADGE_PROGRESS[key];
+        return {
+          key, emoji, name, desc, earned,
+          earnedAt: earned ? earnedAt.get(key) : null,
+          progress: !earned && p ? { current: Math.min(stats[p[0]], p[1]), target: p[1] } : null,
+        };
+      });
+    res.json({ badges });
+  } catch (err) {
+    console.error('Badges list error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
