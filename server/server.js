@@ -210,36 +210,7 @@ async function getFamilyLeader() {
 
 // ── Badges ─────────────────────────────────────────────────────────────────────
 
-const isOhad = s => s.who === 'אהד' || s.who === 'אוהד';
-
-const BADGES = [
-  // Streaks (best-ever run of consecutive days)
-  { key: 'streak3',  emoji: '🔥', name: 'הצתה',            desc: '3 ימים ברצף',        test: s => s.bestStreak >= 3 },
-  { key: 'streak7',  emoji: '🔥', name: 'שבוע של אש',      desc: '7 ימים ברצף',        test: s => s.bestStreak >= 7 },
-  { key: 'streak14', emoji: '🌋', name: 'שבועיים בוערים',  desc: '14 ימים ברצף',       test: s => s.bestStreak >= 14 },
-  { key: 'streak30', emoji: '☄️', name: 'חודש של להבות',   desc: '30 ימים ברצף',       test: s => s.bestStreak >= 30 },
-  // Volume
-  { key: 'walks10',  emoji: '🐾', name: 'כוכב עולה',       desc: '10 טיולים',          test: s => s.total >= 10 },
-  { key: 'walks50',  emoji: '🦮', name: 'מטייל מקצועי',    desc: '50 טיולים',          test: s => s.total >= 50 },
-  { key: 'walks100', emoji: '💯', name: 'מאה!',            desc: '100 טיולים',         test: s => s.total >= 100 },
-  { key: 'walks250', emoji: '👑', name: 'אגדה',            desc: '250 טיולים',         test: s => s.total >= 250 },
-  // Time of day
-  { key: 'earlybird', emoji: '🌅', name: 'ציפור בוקר',     desc: '10 טיולי בוקר',      test: s => s.morning >= 10 },
-  { key: 'nightowl',  emoji: '🌙', name: 'ינשוף לילה',     desc: '10 טיולי לילה',      test: s => s.night >= 10 },
-  { key: 'fullday',   emoji: '🎯', name: 'יום מלא',        desc: 'המשפחה כיסתה את כל חלקי היום', test: s => s.fullDay },
-  // Duration & outcome
-  { key: 'marathon',  emoji: '🏃', name: 'מרתוניסט',       desc: '10 טיולים של 10+ דקות', test: s => s.long >= 10 },
-  { key: 'poop25',    emoji: '💩', name: 'סיירת קקי',      desc: '25 קקי',             test: s => s.poops >= 25 },
-  { key: 'mission',   emoji: '🎉', name: 'משימה הושלמה',   desc: 'פיפי וקקי באותו טיול', test: s => s.missions >= 1 },
-  { key: 'zero',      emoji: '🚫', name: 'גיבור האפס',     desc: '3 טיולים בלי כלום',  test: s => s.nothings >= 3 },
-  // Situational
-  { key: 'rescuer',   emoji: '🦸', name: 'המציל',          desc: 'פתחת יום אחרי יום שבו אף אחד לא טייל', test: s => s.rescuer },
-  { key: 'comeback',  emoji: '🔄', name: 'קאמבק',          desc: 'חזרת אחרי שבוע או יותר', test: s => s.comeback },
-  { key: 'yesterday', emoji: '📅', name: 'גיבור האתמול',   desc: 'דיווחת על טיול של אתמול', test: s => s.backdated },
-  // Personal flavor
-  { key: 'eleven',    emoji: '🌀', name: 'Eleven',         desc: '11 טיולים',          test: s => s.who === 'תהל' && s.total >= 11 },
-  { key: 'douze',     emoji: '🎤', name: 'Douze Points',   desc: '12 טיולים',          test: s => isOhad(s) && s.total >= 12 },
-];
+const { BADGES, isOhad } = require('./badges');
 
 // Which stat each countable badge tracks, and its target (for the Awards tab progress).
 const BADGE_PROGRESS = {
