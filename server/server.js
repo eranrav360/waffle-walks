@@ -612,6 +612,17 @@ function st(msg,cls){var el=document.getElementById('st');if(el){el.textContent=
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 
+// ── Family Hub (family.raviv360.com) ───────────────────────────────────────────
+// Each walk ticks Waffle's walk slot there. FAMILY_HUB_URL + FAMILY_HUB_TOKEN in .env; unset = off.
+async function sendToFamilyHub(walk) {
+  const base = process.env.FAMILY_HUB_URL, token = process.env.FAMILY_HUB_TOKEN;
+  if (!base || !token) return;
+  const res = await fetch(`${base.replace(/\/$/, '')}/api/integrations/waffle/walks`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(walk),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 120)}`);
+}
+
 function requireAdmin(req, res, next) {
   const pwd = req.headers['x-admin-password'] || req.query.pwd;
   if (pwd !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -622,10 +633,13 @@ app.post('/api/walks', async (req, res) => {
   const d = req.body;
   try {
     const createdAt = d.dayOffset === 1 ? new Date(Date.now() - 86400000) : new Date();
-    await pool.query(
-      'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    const { rows: [saved] } = await pool.query(
+      'INSERT INTO walks (who, when_time, pipi, kaki, nothing, duration, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
       [d.who, d.when, !!d.pipiChecked, !!d.kakiChecked, !!d.nothingChecked, d.duration || null, createdAt]
     );
+    // Family Hub tracks Waffle's walk slots; never let it block saving a walk.
+    sendToFamilyHub({ id: saved.id, who: d.who, when: d.when, pipi: !!d.pipiChecked, kaki: !!d.kakiChecked, nothing: !!d.nothingChecked, duration: d.duration || null, createdAt: createdAt.toISOString() })
+      .catch((err) => console.error('Family Hub sync error:', err.message));
     // Badges must never block saving a walk or sending notifications.
     let badges = [];
     try {
