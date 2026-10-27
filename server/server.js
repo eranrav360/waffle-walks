@@ -284,7 +284,7 @@ async function getBadgeEvent(who, createdAt, dayOffset) {
   const gapDays = lastDay ? Math.round((new Date(day + 'T00:00:00Z') - lastDay) / 86400000) : 0;
 
   return {
-    fullDay: new Set(today.map(r => r.when_time)).size >= 4,
+    fullDay: ['בוקר', 'צהריים', 'ערב'].every(t => today.some(r => r.when_time === t)),
     rescuer: older.rows.length > 0 && yesterday.length === 0 && today.every(r => r.who === who),
     comeback: gapDays >= 7,
     backdated: dayOffset === 1,
@@ -294,7 +294,7 @@ async function getBadgeEvent(who, createdAt, dayOffset) {
 // Grants any newly-earned badges and returns just those.
 async function awardBadges(who, event) {
   const stats = await getBadgeStats(who, event);
-  const earned = BADGES.filter(b => b.test(stats));
+  const earned = BADGES.filter(b => !b.retired && b.test(stats));
   if (!earned.length) return [];
   const { rows } = await pool.query('SELECT badge_key FROM badges WHERE who = $1', [who]);
   const have = new Set(rows.map(r => r.badge_key));
@@ -675,6 +675,7 @@ app.get('/api/badges', async (req, res) => {
     const earnedAt = new Map(rows.map(r => [r.badge_key, r.earned_at]));
     const badges = BADGES
       .filter(b => !BADGE_ONLY[b.key] || BADGE_ONLY[b.key](who))
+      .filter(b => !b.retired || earnedAt.has(b.key))
       .map(({ key, emoji, name, desc }) => {
         const earned = earnedAt.has(key);
         const p = BADGE_PROGRESS[key];

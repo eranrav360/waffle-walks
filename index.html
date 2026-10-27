@@ -412,7 +412,6 @@
                 <option value="בוקר">🌅 בוקר</option>
                 <option value="צהריים">☀️ צהריים</option>
                 <option value="ערב">🌆 ערב</option>
-                <option value="לילה">🌙 לילה</option>
             </select>
         </div>
 
@@ -573,7 +572,8 @@
         if (hour >= 5 && hour < 11) return { value: 'בוקר', greeting: 'בוקר טוב' };
         if (hour >= 11 && hour < 16) return { value: 'צהריים', greeting: 'צהריים טובים' };
         if (hour >= 16 && hour < 20) return { value: 'ערב', greeting: 'ערב טוב' };
-        return { value: 'לילה', greeting: 'לילה טוב' };
+        // No "night" option anymore: late walks count as evening.
+        return { value: 'ערב', greeting: 'לילה טוב' };
     }
 
     // Set greeting and auto-select time

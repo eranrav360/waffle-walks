@@ -15,8 +15,9 @@ const BADGES = [
   { key: 'walks250', emoji: '👑', name: 'אגדה',            desc: '250 טיולים',         test: s => s.total >= 250 },
   // Time of day
   { key: 'earlybird', emoji: '🌅', name: 'ציפור בוקר',     desc: '10 טיולי בוקר',      test: s => s.morning >= 10 },
-  { key: 'nightowl',  emoji: '🌙', name: 'ינשוף לילה',     desc: '10 טיולי לילה',      test: s => s.night >= 10 },
-  { key: 'fullday',   emoji: '🎯', name: 'יום מלא',        desc: 'המשפחה כיסתה את כל חלקי היום', test: s => s.fullDay },
+  // Retired when the "night" option was removed: kept for those who earned it, no longer awarded.
+  { key: 'nightowl',  emoji: '🌙', name: 'ינשוף לילה',     desc: '10 טיולי לילה',      retired: true, test: s => s.night >= 10 },
+  { key: 'fullday',   emoji: '🎯', name: 'יום מלא',        desc: 'המשפחה כיסתה בוקר, צהריים וערב', test: s => s.fullDay },
   // Duration & outcome
   { key: 'marathon',  emoji: '🏃', name: 'מרתוניסט',       desc: '10 טיולים של 10+ דקות', test: s => s.long >= 10 },
   { key: 'poop25',    emoji: '💩', name: 'סיירת קקי',      desc: '25 קקי',             test: s => s.poops >= 25 },
@@ -91,7 +92,7 @@ function badgeHistory(walks) {
     const prevDay = addDays(day, -1);
     const stats = {
       ...p,
-      fullDay: d.whens.size >= 4,
+      fullDay: ['בוקר', 'צהריים', 'ערב'].every(t => d.whens.has(t)),
       rescuer: firstDay < prevDay && !perDay.has(prevDay) && d.whos.size === 1,
       comeback: prevWalkDay !== null && daysBetween(prevWalkDay, day) >= 7,
       backdated: false,
