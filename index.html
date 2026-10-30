@@ -397,6 +397,17 @@
         </div>
 
         <!-- Day -->
+        <!-- Who — only when the link didn't carry a name and this browser never stored one -->
+        <div class="section" id="whoSection" style="display:none">
+            <div class="section-label">מי טייל? 🙋</div>
+            <div class="duration-options" id="whoOptions" style="grid-template-columns: 1fr 1fr;">
+                <button class="duration-btn who-btn" data-val="ערן">ערן</button>
+                <button class="duration-btn who-btn" data-val="אורית">אורית</button>
+                <button class="duration-btn who-btn" data-val="אהד">אהד</button>
+                <button class="duration-btn who-btn" data-val="תהל">תהל</button>
+            </div>
+        </div>
+
         <div class="section">
             <div class="section-label">איזה יום? 📅</div>
             <div class="duration-options" id="dayToggle" style="grid-template-columns: 1fr 1fr;">
@@ -440,7 +451,7 @@
         <!-- Duration (optional) -->
         <div class="section">
             <div class="section-label">משך הטיול? ⏱️</div>
-            <div class="duration-options">
+            <div class="duration-options" id="durationOptions">
                 <button class="duration-btn" data-val="2 דקות">2 דק׳</button>
                 <button class="duration-btn" data-val="5 דקות">5 דק׳</button>
                 <button class="duration-btn" data-val="10+ דקות">10+ דק׳</button>
@@ -559,7 +570,7 @@
     const params = new URLSearchParams(window.location.search);
     const rawParam = params.get('who');
     const hashName = decodeURIComponent(window.location.hash.slice(1));
-    const selectedWho = (rawParam && rawParam !== 'null' ? rawParam : null)
+    let selectedWho = (rawParam && rawParam !== 'null' ? rawParam : null)
         || (hashName ? hashName : null)
         || localStorage.getItem('waffleWalksWho');
     if (selectedWho && selectedWho !== 'null') {
@@ -665,10 +676,10 @@
 
     // Duration — optional single-select toggle
     let selectedDuration = null;
-    document.querySelectorAll('.duration-btn').forEach(btn => {
+    document.querySelectorAll('#durationOptions .duration-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const isSame = selectedDuration === btn.dataset.val;
-            document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('#durationOptions .duration-btn').forEach(b => b.classList.remove('selected'));
             selectedDuration = isSame ? null : btn.dataset.val;
             if (!isSame) btn.classList.add('selected');
         });
@@ -700,11 +711,23 @@
         });
     });
 
+    // Who — picked once on a browser that doesn't know the walker yet, then remembered
+    if (!selectedWho) document.getElementById('whoSection').style.display = '';
+    document.querySelectorAll('.who-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.who-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedWho = btn.dataset.val;
+            localStorage.setItem('waffleWalksWho', selectedWho);
+            updateSubmitState();
+        });
+    });
+
     function updateSubmitState() {
         const hasWhat = document.getElementById('cbPipi').checked
             || document.getElementById('cbKaki').checked
             || document.getElementById('cbNothing').checked;
-        document.getElementById('submitBtn').disabled = !hasWhat;
+        document.getElementById('submitBtn').disabled = !hasWhat || !selectedWho;
     }
 
     // Submit

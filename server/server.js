@@ -631,6 +631,7 @@ function requireAdmin(req, res, next) {
 
 app.post('/api/walks', async (req, res) => {
   const d = req.body;
+  if (!d.who || !d.when) return res.status(400).json({ error: 'missing who/when' });
   try {
     const createdAt = d.dayOffset === 1 ? new Date(Date.now() - 86400000) : new Date();
     const { rows: [saved] } = await pool.query(
